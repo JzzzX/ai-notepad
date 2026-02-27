@@ -14,6 +14,7 @@ export default function EnhancedNotes() {
     isEnhancing,
     speakers,
     status,
+    promptOptions,
     setEnhancedNotes,
     setIsEnhancing,
   } = useMeetingStore();
@@ -28,12 +29,15 @@ export default function EnhancedNotes() {
         segments,
         userNotes,
         meetingTitle,
-        speakers
+        speakers,
+        undefined,
+        promptOptions
       );
       setEnhancedNotes(result);
     } catch (error) {
       console.error('Enhance error:', error);
-      setEnhancedNotes('生成失败，请稍后重试。');
+      const detail = error instanceof Error ? error.message : '未知错误';
+      setEnhancedNotes(`生成失败：${detail}`);
     } finally {
       setIsEnhancing(false);
     }

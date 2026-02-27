@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { TranscriptSegment, ChatMessage, Meeting } from './types';
+import { TranscriptSegment, ChatMessage, Meeting, PromptOptions } from './types';
 
 // 会议列表项（从 API 返回的精简结构）
 export interface MeetingListItem {
@@ -36,6 +36,7 @@ interface MeetingStore {
   // Chat
   chatMessages: ChatMessage[];
   isChatLoading: boolean;
+  promptOptions: PromptOptions;
 
   // 录音计时器
   recordingStartTime: number | null;
@@ -65,6 +66,7 @@ interface MeetingStore {
   setSpeakerName: (speakerId: string, name: string) => void;
   addChatMessage: (message: ChatMessage) => void;
   setIsChatLoading: (v: boolean) => void;
+  setPromptOptions: (patch: Partial<PromptOptions>) => void;
   updateDuration: () => void;
   setAudioLevels: (mic: number, system: number) => void;
   reset: () => void;
@@ -90,6 +92,11 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
   speakers: {},
   chatMessages: [],
   isChatLoading: false,
+  promptOptions: {
+    meetingType: '通用',
+    outputStyle: '平衡',
+    includeActionItems: true,
+  },
   recordingStartTime: null,
   micLevel: 0,
   systemLevel: 0,
@@ -155,6 +162,10 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
     })),
 
   setIsChatLoading: (v) => set({ isChatLoading: v }),
+  setPromptOptions: (patch) =>
+    set((state) => ({
+      promptOptions: { ...state.promptOptions, ...patch },
+    })),
 
   updateDuration: () => {
     const { recordingStartTime } = get();
@@ -186,6 +197,11 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
       speakers: {},
       chatMessages: [],
       isChatLoading: false,
+      promptOptions: {
+        meetingType: '通用',
+        outputStyle: '平衡',
+        includeActionItems: true,
+      },
       recordingStartTime: null,
       micLevel: 0,
       systemLevel: 0,

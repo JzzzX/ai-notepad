@@ -16,6 +16,7 @@ export default function ChatPanel() {
     chatMessages,
     isChatLoading,
     speakers,
+    promptOptions,
     status,
     addChatMessage,
     setIsChatLoading,
@@ -85,7 +86,8 @@ export default function ChatPanel() {
         chatMessages,
         templatePrompt || question,
         speakers,
-        templatePrompt
+        templatePrompt,
+        promptOptions
       );
 
       if (!stream) {
@@ -118,10 +120,11 @@ export default function ChatPanel() {
       }
     } catch (error) {
       console.error('Chat error:', error);
+      const detail = error instanceof Error ? error.message : '未知错误';
       addChatMessage({
         id: uuidv4(),
         role: 'assistant',
-        content: '抱歉，请求出错了。请稍后重试。',
+        content: `抱歉，请求出错了。\n\n${detail}`,
         timestamp: Date.now(),
       });
     } finally {

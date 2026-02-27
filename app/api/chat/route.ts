@@ -1,5 +1,8 @@
 import { NextRequest } from 'next/server';
 import { generateTextWithFallback, getConfiguredProviders } from '@/lib/llm-provider';
+import type { PromptOptions } from '@/lib/types';
+
+type PromptOptionsInput = Partial<PromptOptions> | undefined;
 
 function createTextStream(text: string): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -20,6 +23,39 @@ function createTextStream(text: string): ReadableStream<Uint8Array> {
   });
 }
 
+function normalizePromptOptions(input: PromptOptionsInput): PromptOptions {
+  return {
+    meetingType: input?.meetingType || '通用',
+    outputStyle: input?.outputStyle || '平衡',
+    includeActionItems: input?.includeActionItems ?? true,
+  };
+}
+
+function buildChatSystemPrompt(options: PromptOptions, templatePrompt?: string): string {
+  const styleMap: Record<PromptOptions['outputStyle'], string> = {
+    简洁: '回答尽量精炼，优先给出结论。',
+    平衡: '在完整性与简洁性之间保持平衡。',
+    详细: '回答时补充必要背景、原因和前后文。',
+    行动导向: '回答优先给出可执行建议和下一步安排。',
+  };
+
+  const actionRule = options.includeActionItems
+    ? '当问题与执行相关时，请明确给出行动项（负责人/截止日期可标注待定）。'
+    : '除非用户明确要求，不主动输出行动项。';
+
+  const basePrompt = `你是一位智能会议助手。当前会议类型：${options.meetingType}。
+
+你可以访问会议转写、用户笔记和 AI 纪要。请基于这些信息准确回答问题；若信息不足，请明确说明不足点。
+
+回答要求：
+1. ${styleMap[options.outputStyle]}
+2. ${actionRule}
+3. 使用中文回答，不要臆造会议中不存在的信息。`;
+
+  if (!templatePrompt) return basePrompt;
+  return `${basePrompt}\n\n当前任务模板指令：${templatePrompt.trim()}`;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const {
@@ -29,6 +65,7 @@ export async function POST(req: NextRequest) {
       chatHistory,
       question,
       templatePrompt,
+      promptOptions,
     } = await req.json();
 
     if (getConfiguredProviders().length === 0) {
@@ -40,16 +77,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const systemPrompt =
-      templatePrompt ||
-      `你是一位智能会议助手。用户会基于一个会议的内容向你提问。
-
-你可以访问以下会议信息：
-1. 会议转写记录（含说话人标注）
-2. 用户的手写笔记要点
-3. AI 生成的结构化会议纪要
-
-请基于这些信息准确回答用户问题。如果信息不足以回答，请诚实说明。使用中文回答。`;
+    const options = normalizePromptOptions(promptOptions);
+    const systemPrompt = buildChatSystemPrompt(options, templatePrompt);
 
     const contextMessage = `--- 会议转写记录 ---
 ${transcript || '（无）'}
@@ -63,48 +92,31 @@ ${enhancedNotes || '（无）'}`;
     const messages = [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: `以下是会议上下文：\n${contextMessage}` },
-      { role: 'assistant', content: '好的，我已了解本次会议的完整内容。请问有什么需要帮您分析或解答的？' },
-      ...(chatHistory || []).map(
-        (m: { role: string; content: string }) => ({
-          role: m.role,
-          content: m.content,
-        })
-      ),
+      {
+        role: 'assistant',
+        content: '好的，我已了解本次会议的完整内容。请问有什么需要帮您分析或解答的？',
+      },
+      ...(chatHistory || []).map((m: { role: string; content: string }) => ({
+        role: m.role,
+        content: m.content,
+      })),
       { role: 'user', content: question },
     ];
 
-    try {
-      const { content, provider } = await generateTextWithFallback({
-        messages,
-        temperature: 0.5,
-        maxTokens: 4096,
-      });
+    const { content, provider } = await generateTextWithFallback({
+      messages,
+      temperature: 0.5,
+      maxTokens: 4096,
+    });
 
-      const stream = createTextStream(content);
+    const stream = createTextStream(content);
 
-      return new Response(stream, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'X-LLM-Provider': provider,
-        },
-      });
-    } catch (llmError) {
-      const strictMode = process.env.LLM_STRICT_MODE === 'true';
-      const message =
-        llmError instanceof Error ? llmError.message : '未知 LLM 错误';
-      if (strictMode) {
-        throw llmError;
-      }
-
-      const fallback = `${getDemoResponse(question)}\n\n⚠️ LLM 调用失败，已回退到 Demo 内容：${message}`;
-      const stream = createTextStream(fallback);
-      return new Response(stream, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'X-LLM-Provider': 'demo',
-        },
-      });
-    }
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-LLM-Provider': provider,
+      },
+    });
   } catch (error) {
     console.error('Chat error:', error);
     return new Response(

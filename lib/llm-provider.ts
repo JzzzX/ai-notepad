@@ -20,6 +20,25 @@ export interface LlmGenerateOutput {
 const DEFAULT_TIMEOUT_MS = 25_000;
 const DEFAULT_RETRIES = 1;
 
+type ProviderName = 'Gemini' | 'MiniMax';
+
+function truncate(text: string, max = 320): string {
+  return text.length <= max ? text : `${text.slice(0, max)}...`;
+}
+
+function formatHttpError(provider: ProviderName, status: number, body: string): string {
+  const category =
+    status === 401 || status === 403
+      ? '鉴权失败'
+      : status === 429
+        ? '限流'
+        : status >= 500
+          ? '上游服务异常'
+          : '请求异常';
+  const detail = truncate((body || '').replace(/\s+/g, ' ').trim());
+  return `${provider} ${category}（HTTP ${status}）${detail ? `: ${detail}` : ''}`;
+}
+
 function parseProviderList(value?: string): LlmProvider[] {
   if (!value) return [];
   const providers = value
@@ -33,8 +52,9 @@ function parseProviderList(value?: string): LlmProvider[] {
 
 function isProviderConfigured(provider: LlmProvider): boolean {
   if (provider === 'gemini') return Boolean(process.env.GEMINI_API_KEY);
-  if (provider === 'minimax')
+  if (provider === 'minimax') {
     return Boolean(process.env.MINIMAX_API_KEY && process.env.MINIMAX_GROUP_ID);
+  }
   if (provider === 'openai') return Boolean(process.env.OPENAI_API_KEY);
   return false;
 }
@@ -132,7 +152,7 @@ async function callGemini(input: LlmGenerateInput): Promise<string> {
 
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`Gemini API 调用失败: ${errorText}`);
+    throw new Error(formatHttpError('Gemini', res.status, errorText));
   }
 
   const data = await res.json();
@@ -148,7 +168,54 @@ async function callGemini(input: LlmGenerateInput): Promise<string> {
   return content;
 }
 
-async function callMiniMax(input: LlmGenerateInput): Promise<string> {
+interface MiniMaxPayload {
+  choices?: Array<{
+    delta?: { content?: unknown };
+    message?: { content?: unknown };
+    text?: string;
+  }>;
+  reply?: string;
+  base_resp?: {
+    status_code?: number;
+    status_msg?: string;
+  };
+}
+
+function extractTextFromUnknownContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === 'string') return part;
+        if (part && typeof part === 'object' && 'text' in part) {
+          const text = (part as { text?: unknown }).text;
+          return typeof text === 'string' ? text : '';
+        }
+        return '';
+      })
+      .join('');
+  }
+  return '';
+}
+
+function extractMiniMaxText(payload: MiniMaxPayload): string {
+  if (typeof payload.reply === 'string' && payload.reply.trim()) {
+    return payload.reply;
+  }
+
+  const parts: string[] = [];
+  for (const choice of payload.choices || []) {
+    const delta = extractTextFromUnknownContent(choice.delta?.content);
+    const message = extractTextFromUnknownContent(choice.message?.content);
+    const text = typeof choice.text === 'string' ? choice.text : '';
+    if (delta) parts.push(delta);
+    if (message) parts.push(message);
+    if (text) parts.push(text);
+  }
+  return parts.join('');
+}
+
+async function callMiniMaxNonStream(input: LlmGenerateInput): Promise<string> {
   const apiKey = process.env.MINIMAX_API_KEY;
   const groupId = process.env.MINIMAX_GROUP_ID;
   if (!apiKey || !groupId) {
@@ -166,6 +233,7 @@ async function callMiniMax(input: LlmGenerateInput): Promise<string> {
       },
       body: JSON.stringify({
         model,
+        stream: false,
         messages: input.messages,
         temperature: input.temperature ?? 0.5,
         max_tokens: input.maxTokens ?? 4096,
@@ -175,13 +243,165 @@ async function callMiniMax(input: LlmGenerateInput): Promise<string> {
 
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(`MiniMax API 调用失败: ${errorText}`);
+    throw new Error(formatHttpError('MiniMax', res.status, errorText));
   }
 
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content?.trim();
+  const data = (await res.json()) as MiniMaxPayload;
+
+  if (data.base_resp?.status_code && data.base_resp.status_code !== 0) {
+    throw new Error(
+      `MiniMax 上游异常（${data.base_resp.status_code}）：${data.base_resp.status_msg || '未知错误'}`
+    );
+  }
+
+  const content = extractMiniMaxText(data).trim();
   if (!content) throw new Error('MiniMax 返回为空');
   return content;
+}
+
+async function callMiniMaxStream(input: LlmGenerateInput): Promise<string> {
+  const apiKey = process.env.MINIMAX_API_KEY;
+  const groupId = process.env.MINIMAX_GROUP_ID;
+  if (!apiKey || !groupId) {
+    throw new Error('MiniMax 凭证未配置');
+  }
+
+  const model = process.env.MINIMAX_MODEL || 'MiniMax-Text-01';
+  const res = await fetch(
+    `https://api.minimax.chat/v1/text/chatcompletion_v2?GroupId=${groupId}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        stream: true,
+        messages: input.messages,
+        temperature: input.temperature ?? 0.5,
+        max_tokens: input.maxTokens ?? 4096,
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(formatHttpError('MiniMax', res.status, errorText));
+  }
+
+  if (!res.body) {
+    throw new Error('MiniMax 流式响应为空');
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullText = '';
+  let doneSeen = false;
+  let invalidJsonCount = 0;
+
+  const processEvent = (rawEvent: string): void => {
+    if (!rawEvent.trim()) return;
+
+    const lines = rawEvent.split(/\r?\n/);
+    const dataLines = lines
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trimStart());
+
+    if (dataLines.length === 0) return;
+
+    const dataText = dataLines.join('\n').trim();
+    if (!dataText) return;
+
+    if (dataText === '[DONE]') {
+      doneSeen = true;
+      return;
+    }
+
+    let payload: MiniMaxPayload;
+    try {
+      payload = JSON.parse(dataText) as MiniMaxPayload;
+    } catch {
+      invalidJsonCount += 1;
+      return;
+    }
+
+    if (payload.base_resp?.status_code && payload.base_resp.status_code !== 0) {
+      throw new Error(
+        `MiniMax 上游异常（${payload.base_resp.status_code}）：${payload.base_resp.status_msg || '未知错误'}`
+      );
+    }
+
+    const delta = extractMiniMaxText(payload);
+    if (delta) {
+      fullText += delta;
+    }
+  };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      buffer = buffer.replace(/\r/g, '');
+
+      let separatorIndex = buffer.indexOf('\n\n');
+      while (separatorIndex !== -1) {
+        const eventText = buffer.slice(0, separatorIndex);
+        buffer = buffer.slice(separatorIndex + 2);
+        processEvent(eventText);
+        separatorIndex = buffer.indexOf('\n\n');
+      }
+    }
+
+    buffer += decoder.decode();
+    buffer = buffer.replace(/\r/g, '');
+    if (buffer.trim()) {
+      processEvent(buffer);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`MiniMax 流式读取失败：${message}`);
+  }
+
+  const content = fullText.trim();
+  if (content) {
+    return content;
+  }
+
+  if (invalidJsonCount > 0) {
+    throw new Error(`MiniMax 流式解析失败：收到 ${invalidJsonCount} 条非法 JSON 片段`);
+  }
+
+  if (!doneSeen) {
+    throw new Error('MiniMax 流式连接中断：未收到完成信号');
+  }
+
+  throw new Error('MiniMax 流式返回为空');
+}
+
+async function callMiniMax(input: LlmGenerateInput): Promise<string> {
+  if (process.env.MINIMAX_USE_STREAM === 'false') {
+    return callMiniMaxNonStream(input);
+  }
+
+  let streamError = '';
+  try {
+    return await callMiniMaxStream(input);
+  } catch (error) {
+    streamError = error instanceof Error ? error.message : String(error);
+  }
+
+  try {
+    return await callMiniMaxNonStream(input);
+  } catch (fallbackError) {
+    const fallbackMessage =
+      fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+    throw new Error(
+      `MiniMax 流式与非流式均失败；流式错误：${streamError}；非流式错误：${fallbackMessage}`
+    );
+  }
 }
 
 function sleep(ms: number): Promise<void> {

@@ -1,4 +1,5 @@
 import { TranscriptSegment, ChatMessage } from './types';
+import type { PromptOptions } from './types';
 
 // 构建转写文本（带说话人标注）
 function buildTranscriptText(
@@ -20,7 +21,8 @@ export async function enhanceNotes(
   userNotes: string,
   meetingTitle: string,
   speakers: Record<string, string>,
-  templatePrompt?: string
+  templatePrompt?: string,
+  promptOptions?: PromptOptions
 ): Promise<string> {
   const transcript = buildTranscriptText(segments, speakers);
 
@@ -32,6 +34,7 @@ export async function enhanceNotes(
       userNotes,
       meetingTitle,
       templatePrompt,
+      promptOptions,
     }),
   });
 
@@ -62,7 +65,8 @@ export async function chatWithMeeting(
   chatHistory: ChatMessage[],
   question: string,
   speakers: Record<string, string>,
-  templatePrompt?: string
+  templatePrompt?: string,
+  promptOptions?: PromptOptions
 ): Promise<ReadableStream<Uint8Array> | null> {
   const transcript = buildTranscriptText(segments, speakers);
 
@@ -76,6 +80,7 @@ export async function chatWithMeeting(
       chatHistory: chatHistory.slice(-10),
       question,
       templatePrompt,
+      promptOptions,
     }),
   });
 

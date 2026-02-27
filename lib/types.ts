@@ -15,6 +15,21 @@ export interface ChatMessage {
   templateId?: string;
 }
 
+export type MeetingType =
+  | '通用'
+  | '项目周会'
+  | '需求评审'
+  | '销售沟通'
+  | '面试复盘';
+
+export type OutputStyle = '简洁' | '平衡' | '详细' | '行动导向';
+
+export interface PromptOptions {
+  meetingType: MeetingType;
+  outputStyle: OutputStyle;
+  includeActionItems: boolean;
+}
+
 export interface Template {
   id: string;
   name: string;

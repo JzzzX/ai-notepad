@@ -1,29 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateTextWithFallback, getConfiguredProviders } from '@/lib/llm-provider';
+import type { PromptOptions } from '@/lib/types';
 
-export async function POST(req: NextRequest) {
-  try {
-    const { transcript, userNotes, meetingTitle, templatePrompt } =
-      await req.json();
+type PromptOptionsInput = Partial<PromptOptions> | undefined;
 
-    if (getConfiguredProviders().length === 0) {
-      // Demo 模式：无 API Key 时返回模拟结果
-      return NextResponse.json({
-        content: generateDemoEnhancedNotes(transcript, userNotes, meetingTitle),
-      });
-    }
+function normalizePromptOptions(input: PromptOptionsInput): PromptOptions {
+  return {
+    meetingType: input?.meetingType || '通用',
+    outputStyle: input?.outputStyle || '平衡',
+    includeActionItems: input?.includeActionItems ?? true,
+  };
+}
 
-    const systemPrompt =
-      templatePrompt ||
-      `你是一位专业的会议记录助手。请根据以下三个输入生成结构化会议纪要：
+function buildEnhanceSystemPrompt(options: PromptOptions, templatePrompt?: string): string {
+  const styleMap: Record<PromptOptions['outputStyle'], string> = {
+    简洁: '表达尽量精炼，优先输出结论和关键点。',
+    平衡: '在信息完整和阅读效率之间保持平衡。',
+    详细: '尽可能保留背景、分歧和上下文细节。',
+    行动导向: '优先输出可执行结论，强调负责人、截止时间与依赖关系。',
+  };
 
-1. 会议转写记录（含说话人标注）
-2. 用户手写的关键要点
-3. 会议基本信息
+  const actionRule = options.includeActionItems
+    ? '“行动项”章节必须输出，且每条至少包含：事项、负责人（未知可写待定）、建议截止日期（未知可写待定）。'
+    : '“行动项”章节仅在会议中有明确待办时输出；若无可写“无明确行动项”。';
 
-输出格式：
+  const basePrompt = `你是一位专业的会议记录助手。当前会议类型：${options.meetingType}。
+
+请根据输入内容生成结构化会议纪要，输出格式如下：
+
 ## 会议摘要
-（3-5句话概括）
+（3-5 句话概括）
 
 ## 关键讨论点
 （按主题分点整理）
@@ -32,20 +38,43 @@ export async function POST(req: NextRequest) {
 （明确达成的决定）
 
 ## 行动项
-（包含负责人和建议截止日期）
+（按要求输出）
 
 ## 待确认事项
 （需要后续跟进确认的问题）
 
-要求：以用户手写要点为优先参考，用转写内容补充细节和上下文。使用中文输出。`;
+写作要求：
+1. 用户手写要点优先，转写内容用于补充证据和上下文。
+2. ${styleMap[options.outputStyle]}
+3. ${actionRule}
+4. 使用中文输出，不要捏造会议未出现的信息。`;
 
-    try {
-      const { content, provider } = await generateTextWithFallback({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: `会议标题：${meetingTitle || '未命名会议'}
+  if (!templatePrompt) return basePrompt;
+  return `${templatePrompt.trim()}\n\n补充约束：${basePrompt}`;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const { transcript, userNotes, meetingTitle, templatePrompt, promptOptions } =
+      await req.json();
+
+    if (getConfiguredProviders().length === 0) {
+      // Demo 模式：无 API Key 时返回模拟结果
+      return NextResponse.json({
+        content: generateDemoEnhancedNotes(transcript, userNotes, meetingTitle),
+        provider: 'demo',
+      });
+    }
+
+    const options = normalizePromptOptions(promptOptions);
+    const systemPrompt = buildEnhanceSystemPrompt(options, templatePrompt);
+
+    const { content, provider } = await generateTextWithFallback({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: `会议标题：${meetingTitle || '未命名会议'}
 
 --- 会议转写记录 ---
 ${transcript || '（无转写内容）'}
@@ -54,28 +83,13 @@ ${transcript || '（无转写内容）'}
 ${userNotes || '（用户未记录要点）'}
 
 请根据以上内容生成结构化会议纪要。`,
-          },
-        ],
-        temperature: 0.3,
-        maxTokens: 4096,
-      });
+        },
+      ],
+      temperature: 0.3,
+      maxTokens: 4096,
+    });
 
-      return NextResponse.json({ content, provider });
-    } catch (llmError) {
-      const strictMode = process.env.LLM_STRICT_MODE === 'true';
-      const message =
-        llmError instanceof Error ? llmError.message : '未知 LLM 错误';
-
-      if (strictMode) {
-        throw llmError;
-      }
-
-      return NextResponse.json({
-        content: `${generateDemoEnhancedNotes(transcript, userNotes, meetingTitle)}\n\n---\n⚠️ LLM 调用失败，已回退到 Demo 内容：${message}`,
-        provider: 'demo',
-        warning: message,
-      });
-    }
+    return NextResponse.json({ content, provider });
   } catch (error) {
     console.error('Enhance error:', error);
     return NextResponse.json(

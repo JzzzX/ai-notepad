@@ -9,6 +9,7 @@ import ChatPanel from '@/components/ChatPanel';
 import EnhancedNotes from '@/components/EnhancedNotes';
 import SpeakerManager from '@/components/SpeakerManager';
 import MeetingHistory from '@/components/MeetingHistory';
+import PromptSettings from '@/components/PromptSettings';
 import { useMeetingStore } from '@/lib/store';
 
 export default function Home() {
@@ -151,6 +152,7 @@ export default function Home() {
 
           {(status === 'ended' || segments.length > 0) && (
             <div className="border-t border-zinc-200 bg-zinc-50 p-4 space-y-4 max-h-[50%] overflow-y-auto">
+              <PromptSettings />
               <SpeakerManager />
               <EnhancedNotes />
             </div>
