@@ -97,7 +97,7 @@ async function callGemini(input: LlmGenerateInput): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY 未配置');
 
-  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash-lite';
+  const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';
   const system = input.messages.find((m) => m.role === 'system')?.content;
   const conversation = input.messages.filter((m) => m.role !== 'system');
 
@@ -227,4 +227,3 @@ export async function generateTextWithFallback(
 
   throw new Error(`全部 Provider 调用失败：${errors.join(' | ')}`);
 }
-
