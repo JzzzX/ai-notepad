@@ -35,7 +35,7 @@ interface AsrSessionResponse {
     wsUrl: string;
     token: string;
     appKey: string;
-    tokenExpireTime: number;
+    tokenExpireTime: number | null;
   };
   error?: string;
 }

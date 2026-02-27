@@ -43,6 +43,7 @@ npm run dev
 
 - `ASR_MODE` - `browser`（默认 Demo）或 `aliyun`（启用阿里云实时转写）
 - `ALICLOUD_ACCESS_KEY_ID` / `ALICLOUD_ACCESS_KEY_SECRET` / `ALICLOUD_ASR_APP_KEY` - 阿里云语音服务
+- `ALICLOUD_ASR_TOKEN` - 可选，临时 Token 直连模式（演示联调更快，需同时配置 `ALICLOUD_ASR_APP_KEY`）
 - `MINIMAX_API_KEY` / `MINIMAX_GROUP_ID` - MiniMax 大模型
 
 ## 与 Granola 的差异化

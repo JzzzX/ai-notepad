@@ -33,7 +33,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const token = await getAliyunToken();
+    const directToken = process.env.ALICLOUD_ASR_TOKEN;
+    const token = directToken ? { value: directToken, expireTime: null } : await getAliyunToken();
     const appKey = process.env.ALICLOUD_ASR_APP_KEY;
 
     if (!appKey) {
