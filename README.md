@@ -14,7 +14,7 @@
 
 | 模块 | 技术选型 |
 |------|---------|
-| 前端 | Next.js 15 + React 19 + Tailwind CSS |
+| 前端 | Next.js 16 + React 19 + Tailwind CSS |
 | 编辑器 | Tiptap (ProseMirror) |
 | 状态管理 | Zustand |
 | ASR | 阿里云智能语音交互（实时转写） |
@@ -39,8 +39,9 @@ npm run dev
 
 ## 环境变量
 
-参见 `.env.example`，需要配置：
+参见 `.env.example`，关键配置：
 
+- `ASR_MODE` - `browser`（默认 Demo）或 `aliyun`（启用阿里云实时转写）
 - `ALICLOUD_ACCESS_KEY_ID` / `ALICLOUD_ACCESS_KEY_SECRET` / `ALICLOUD_ASR_APP_KEY` - 阿里云语音服务
 - `MINIMAX_API_KEY` / `MINIMAX_GROUP_ID` - MiniMax 大模型
 

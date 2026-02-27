@@ -1,14 +1,109 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { Mic, Square, Clock, Monitor, MonitorOff, Volume2 } from 'lucide-react';
+import { Mic, Square, Clock, Monitor, Volume2 } from 'lucide-react';
 import { useMeetingStore } from '@/lib/store';
 import { v4 as uuidv4 } from 'uuid';
+import type { AsrStatus } from '@/lib/asr';
 
 // 音量阈值：用于判定"正在说话"
 const VOICE_THRESHOLD = 0.05;
 // 系统音频静默超时（ms）：超过此时间认为对方停止说话
 const SYSTEM_SILENCE_TIMEOUT = 1500;
+const PCM_SAMPLE_RATE = 16000;
+const SCRIPT_BUFFER_SIZE = 4096;
+
+type AudioSourceType = 'mic' | 'system';
+
+interface AliyunWsPayload {
+  result?: string;
+  begin_time?: number;
+  end_time?: number;
+}
+
+interface AliyunWsMessage {
+  header?: {
+    name?: string;
+    status?: number;
+    status_text?: string;
+  };
+  payload?: AliyunWsPayload;
+}
+
+interface AsrSessionResponse {
+  session?: {
+    wsUrl: string;
+    token: string;
+    appKey: string;
+    tokenExpireTime: number;
+  };
+  error?: string;
+}
+
+interface AliyunChannelRuntime {
+  appKey: string;
+  taskId: string;
+  sourceType: AudioSourceType;
+  speaker: string;
+  sessionStartTime: number;
+  ws: WebSocket;
+  audioContext: AudioContext;
+  sourceNode: MediaStreamAudioSourceNode;
+  processorNode: ScriptProcessorNode;
+  sinkNode: GainNode;
+}
+
+function LevelBar({ level, color }: { level: number; color: string }) {
+  return (
+    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-100">
+      <div
+        className={`h-full rounded-full transition-all duration-75 ${color}`}
+        style={{ width: `${Math.min(level * 500, 100)}%` }}
+      />
+    </div>
+  );
+}
+
+function downsampleTo16k(input: Float32Array, inputSampleRate: number): Float32Array {
+  if (inputSampleRate === PCM_SAMPLE_RATE) {
+    return input;
+  }
+
+  const ratio = inputSampleRate / PCM_SAMPLE_RATE;
+  const outputLength = Math.max(1, Math.round(input.length / ratio));
+  const output = new Float32Array(outputLength);
+
+  let offsetResult = 0;
+  let offsetBuffer = 0;
+
+  while (offsetResult < output.length) {
+    const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
+    let sum = 0;
+    let count = 0;
+
+    for (let i = offsetBuffer; i < nextOffsetBuffer && i < input.length; i++) {
+      sum += input[i];
+      count++;
+    }
+
+    output[offsetResult] = count > 0 ? sum / count : 0;
+    offsetResult++;
+    offsetBuffer = nextOffsetBuffer;
+  }
+
+  return output;
+}
+
+function toInt16PcmBuffer(float32Data: Float32Array): ArrayBuffer {
+  const pcm = new Int16Array(float32Data.length);
+
+  for (let i = 0; i < float32Data.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32Data[i]));
+    pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+
+  return pcm.buffer;
+}
 
 export default function AudioRecorder() {
   const {
@@ -28,6 +123,7 @@ export default function AudioRecorder() {
 
   const [hasSystemAudio, setHasSystemAudio] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [asrStatus, setAsrStatus] = useState<AsrStatus | null>(null);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -37,6 +133,8 @@ export default function AudioRecorder() {
   const animFrameRef = useRef<number>(0);
   const micAnalyserRef = useRef<AnalyserNode | null>(null);
   const systemAnalyserRef = useRef<AnalyserNode | null>(null);
+  const aliyunChannelsRef = useRef<AliyunChannelRuntime[]>([]);
+  const aliyunEnabledRef = useRef(false);
 
   // 系统音频说话人追踪
   const systemSpeakingRef = useRef(false);
@@ -51,6 +149,32 @@ export default function AudioRecorder() {
       return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
+
+  const resetRecorderState = useCallback(() => {
+    setCurrentPartial('');
+    setAudioLevels(0, 0);
+    setHasSystemAudio(false);
+  }, [setCurrentPartial, setAudioLevels]);
+
+  const loadAsrStatus = useCallback(async (): Promise<AsrStatus> => {
+    try {
+      const res = await fetch('/api/asr/status');
+      if (!res.ok) throw new Error('failed to load asr status');
+      const data = (await res.json()) as AsrStatus;
+      setAsrStatus(data);
+      return data;
+    } catch {
+      const fallback: AsrStatus = {
+        mode: 'browser',
+        provider: 'web-speech',
+        ready: false,
+        missing: [],
+        message: 'ASR 状态获取失败，默认使用浏览器转写',
+      };
+      setAsrStatus(fallback);
+      return fallback;
+    }
+  }, []);
 
   // 从 AnalyserNode 获取音量（0~1）
   const getLevel = (analyser: AnalyserNode): number => {
@@ -86,8 +210,8 @@ export default function AudioRecorder() {
         systemSilenceTimerRef.current = setTimeout(() => {
           if (systemSpeakingRef.current) {
             const dur = Date.now() - systemSpeakStartRef.current;
-            // 说了超过 0.8 秒才记录
-            if (dur > 800) {
+            // 说了超过 0.8 秒才记录；aliyun 模式下由真实 ASR 结果替代
+            if (dur > 800 && !aliyunEnabledRef.current) {
               useMeetingStore.getState().addSegment({
                 id: uuidv4(),
                 speaker: '对方（系统音频）',
@@ -135,54 +259,46 @@ export default function AudioRecorder() {
     [startLevelMonitoring]
   );
 
-  const handleStart = useCallback(async () => {
-    // 1. 获取麦克风
-    let micStream: MediaStream;
-    try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = micStream;
-    } catch {
-      alert('请允许麦克风权限以使用语音转写功能');
-      return;
+  const stopWebSpeechRecognition = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
     }
+  }, []);
 
-    // 2. 尝试获取系统音频（用户可跳过）
-    let systemStream: MediaStream | undefined;
-    try {
-      const displayStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { width: 1, height: 1 }, // 最小化视频（仅需音频）
-        audio: true,
-      });
-      // 提取音频轨道
-      const audioTracks = displayStream.getAudioTracks();
-      if (audioTracks.length > 0) {
-        systemStream = new MediaStream(audioTracks);
-        systemStreamRef.current = systemStream;
-        setHasSystemAudio(true);
+  const stopAliyunRecognition = useCallback(() => {
+    const channels = aliyunChannelsRef.current;
+    aliyunChannelsRef.current = [];
+    aliyunEnabledRef.current = false;
+
+    channels.forEach((channel) => {
+      if (channel.ws.readyState === WebSocket.OPEN) {
+        channel.ws.send(
+          JSON.stringify({
+            header: {
+              appkey: channel.appKey,
+              message_id: uuidv4(),
+              task_id: channel.taskId,
+              namespace: 'SpeechTranscriber',
+              name: 'StopTranscription',
+            },
+          })
+        );
       }
-      // 停止不需要的视频轨道
-      displayStream.getVideoTracks().forEach((t) => t.stop());
-    } catch {
-      // 用户取消或浏览器不支持 → 仅麦克风模式
-      setHasSystemAudio(false);
-    }
 
-    // 3. 启动会议
-    startMeeting();
+      channel.ws.close();
+      channel.processorNode.disconnect();
+      channel.sourceNode.disconnect();
+      channel.sinkNode.disconnect();
+      channel.audioContext.close().catch(() => undefined);
+    });
+  }, []);
 
-    // 4. 计时器
-    timerRef.current = setInterval(() => {
-      updateDuration();
-    }, 1000);
-
-    // 5. 音频分析（双通道或单通道）
-    setupAudioAnalysis(micStream, systemStream);
-
-    // 6. Web Speech API（转写麦克风）
+  const startWebSpeechRecognition = useCallback(() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      alert('当前浏览器不支持语音识别，请使用 Chrome');
-      return;
+      throw new Error('当前浏览器不支持语音识别，请使用 Chrome');
     }
 
     const recognition = new SR();
@@ -228,16 +344,274 @@ export default function AudioRecorder() {
 
     recognition.start();
     recognitionRef.current = recognition;
-  }, [startMeeting, updateDuration, addSegment, setCurrentPartial, setupAudioAnalysis]);
+  }, [addSegment, setCurrentPartial]);
+
+  const createAliyunChannel = useCallback(
+    (
+      session: NonNullable<AsrSessionResponse['session']>,
+      stream: MediaStream,
+      sourceType: AudioSourceType
+    ) => {
+      const speaker = sourceType === 'mic' ? '我（麦克风）' : '对方（系统音频）';
+      const audioContext = new AudioContext({ sampleRate: PCM_SAMPLE_RATE });
+      const sourceNode = audioContext.createMediaStreamSource(stream);
+      const processorNode = audioContext.createScriptProcessor(SCRIPT_BUFFER_SIZE, 1, 1);
+      const sinkNode = audioContext.createGain();
+      sinkNode.gain.value = 0;
+
+      sourceNode.connect(processorNode);
+      processorNode.connect(sinkNode);
+      sinkNode.connect(audioContext.destination);
+
+      const ws = new WebSocket(`${session.wsUrl}?token=${encodeURIComponent(session.token)}`);
+      const sessionStartTime = Date.now();
+      const taskId = uuidv4();
+
+      ws.onopen = () => {
+        ws.send(
+          JSON.stringify({
+            header: {
+              appkey: session.appKey,
+              message_id: uuidv4(),
+              task_id: taskId,
+              namespace: 'SpeechTranscriber',
+              name: 'StartTranscription',
+            },
+            payload: {
+              format: 'pcm',
+              sample_rate: PCM_SAMPLE_RATE,
+              enable_intermediate_result: true,
+              enable_punctuation_prediction: true,
+              enable_inverse_text_normalization: true,
+            },
+          })
+        );
+      };
+
+      ws.onmessage = (event) => {
+        if (typeof event.data !== 'string') return;
+
+        try {
+          const message = JSON.parse(event.data) as AliyunWsMessage;
+          const eventName = message.header?.name;
+          const result = message.payload?.result?.trim() || '';
+
+          if (eventName === 'TranscriptionResultChanged' && sourceType === 'mic') {
+            setCurrentPartial(result);
+          }
+
+          if (eventName === 'SentenceEnd' && result) {
+            const beginTime = message.payload?.begin_time;
+            const endTime = message.payload?.end_time;
+            const startTime =
+              typeof beginTime === 'number' ? sessionStartTime + beginTime : Date.now() - 1500;
+            const finalTime = typeof endTime === 'number' ? sessionStartTime + endTime : Date.now();
+
+            addSegment({
+              id: uuidv4(),
+              speaker,
+              text: result,
+              startTime,
+              endTime: finalTime,
+              isFinal: true,
+            });
+
+            if (sourceType === 'mic') {
+              setCurrentPartial('');
+            }
+          }
+
+          if (eventName === 'TaskFailed') {
+            console.error('Aliyun ASR failed:', message.header?.status_text || event.data);
+          }
+        } catch {
+          // 忽略非 JSON 事件
+        }
+      };
+
+      ws.onerror = (event) => {
+        console.error(`Aliyun ASR websocket error (${speaker}):`, event);
+      };
+
+      processorNode.onaudioprocess = (event) => {
+        if (ws.readyState !== WebSocket.OPEN) return;
+        if (event.inputBuffer.numberOfChannels < 1) return;
+
+        const input = event.inputBuffer.getChannelData(0);
+        const downsampled = downsampleTo16k(input, audioContext.sampleRate);
+        const pcmBuffer = toInt16PcmBuffer(downsampled);
+        ws.send(pcmBuffer);
+      };
+
+      const runtime: AliyunChannelRuntime = {
+        appKey: session.appKey,
+        taskId,
+        sourceType,
+        speaker,
+        sessionStartTime,
+        ws,
+        audioContext,
+        sourceNode,
+        processorNode,
+        sinkNode,
+      };
+
+      aliyunChannelsRef.current.push(runtime);
+    },
+    [addSegment, setCurrentPartial]
+  );
+
+  const startAliyunRecognition = useCallback(
+    async (micStream: MediaStream, systemStream?: MediaStream) => {
+      stopAliyunRecognition();
+
+      const res = await fetch('/api/asr/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sampleRate: PCM_SAMPLE_RATE,
+          channels: 1,
+          includeSystemAudio: Boolean(systemStream),
+        }),
+      });
+
+      const data = (await res.json()) as AsrSessionResponse;
+      if (!res.ok) {
+        throw new Error(data.error || '创建阿里云 ASR 会话失败');
+      }
+
+      if (!data.session?.token || !data.session?.appKey || !data.session?.wsUrl) {
+        throw new Error('阿里云 ASR 会话返回不完整');
+      }
+
+      createAliyunChannel(data.session, micStream, 'mic');
+      if (systemStream) {
+        createAliyunChannel(data.session, systemStream, 'system');
+      }
+
+      aliyunEnabledRef.current = true;
+    },
+    [createAliyunChannel, stopAliyunRecognition]
+  );
+
+  const cleanupLocalTracks = useCallback(() => {
+    micStreamRef.current?.getTracks().forEach((t) => t.stop());
+    systemStreamRef.current?.getTracks().forEach((t) => t.stop());
+    micStreamRef.current = null;
+    systemStreamRef.current = null;
+  }, []);
+
+  const handleStart = useCallback(async () => {
+    // 1. 获取麦克风
+    let micStream: MediaStream;
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStreamRef.current = micStream;
+    } catch {
+      alert('请允许麦克风权限以使用语音转写功能');
+      return;
+    }
+
+    // 2. 尝试获取系统音频（用户可跳过）
+    let systemStream: MediaStream | undefined;
+    try {
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { width: 1, height: 1 }, // 最小化视频（仅需音频）
+        audio: true,
+      });
+      // 提取音频轨道
+      const audioTracks = displayStream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        systemStream = new MediaStream(audioTracks);
+        systemStreamRef.current = systemStream;
+        setHasSystemAudio(true);
+      }
+      // 停止不需要的视频轨道
+      displayStream.getVideoTracks().forEach((t) => t.stop());
+    } catch {
+      // 用户取消或浏览器不支持 → 仅麦克风模式
+      setHasSystemAudio(false);
+    }
+
+    const currentAsrStatus = await loadAsrStatus();
+    const useAliyunAsr = currentAsrStatus.mode === 'aliyun' && currentAsrStatus.ready;
+
+    if (!useAliyunAsr) {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        cleanupLocalTracks();
+        resetRecorderState();
+        alert('当前浏览器不支持语音识别，请使用 Chrome');
+        return;
+      }
+    }
+
+    // 3. 启动会议
+    startMeeting();
+
+    // 4. 计时器
+    timerRef.current = setInterval(() => {
+      updateDuration();
+    }, 1000);
+
+    // 5. 音频分析（双通道或单通道）
+    setupAudioAnalysis(micStream, systemStream);
+
+    // 6. 启动 ASR
+    try {
+      if (useAliyunAsr) {
+        await startAliyunRecognition(micStream, systemStream);
+      } else {
+        startWebSpeechRecognition();
+      }
+    } catch (error) {
+      console.error('启动 ASR 失败:', error);
+      alert(error instanceof Error ? error.message : '启动 ASR 失败，请检查配置');
+
+      stopWebSpeechRecognition();
+      stopAliyunRecognition();
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      cancelAnimationFrame(animFrameRef.current);
+
+      audioCtxRef.current?.close();
+      audioCtxRef.current = null;
+      micAnalyserRef.current = null;
+      systemAnalyserRef.current = null;
+
+      cleanupLocalTracks();
+
+      if (systemSilenceTimerRef.current) {
+        clearTimeout(systemSilenceTimerRef.current);
+        systemSilenceTimerRef.current = null;
+      }
+      systemSpeakingRef.current = false;
+
+      endMeeting();
+      resetRecorderState();
+    }
+  }, [
+    cleanupLocalTracks,
+    endMeeting,
+    loadAsrStatus,
+    resetRecorderState,
+    setupAudioAnalysis,
+    startAliyunRecognition,
+    startMeeting,
+    startWebSpeechRecognition,
+    stopAliyunRecognition,
+    stopWebSpeechRecognition,
+    updateDuration,
+  ]);
 
   const handleStop = useCallback(() => {
     endMeeting();
 
-    // 停止语音识别
-    if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
-    }
+    stopWebSpeechRecognition();
+    stopAliyunRecognition();
 
     // 停止计时
     if (timerRef.current) {
@@ -248,11 +622,7 @@ export default function AudioRecorder() {
     // 停止音量监测
     cancelAnimationFrame(animFrameRef.current);
 
-    // 停止音频流
-    micStreamRef.current?.getTracks().forEach((t) => t.stop());
-    systemStreamRef.current?.getTracks().forEach((t) => t.stop());
-    micStreamRef.current = null;
-    systemStreamRef.current = null;
+    cleanupLocalTracks();
 
     // 关闭 AudioContext
     audioCtxRef.current?.close();
@@ -267,31 +637,31 @@ export default function AudioRecorder() {
     }
     systemSpeakingRef.current = false;
 
-    setHasSystemAudio(false);
-  }, [endMeeting]);
+    resetRecorderState();
+  }, [
+    cleanupLocalTracks,
+    endMeeting,
+    resetRecorderState,
+    stopAliyunRecognition,
+    stopWebSpeechRecognition,
+  ]);
 
   // 清理
   useEffect(() => {
     return () => {
-      recognitionRef.current?.stop();
+      stopWebSpeechRecognition();
+      stopAliyunRecognition();
       if (timerRef.current) clearInterval(timerRef.current);
       cancelAnimationFrame(animFrameRef.current);
-      micStreamRef.current?.getTracks().forEach((t) => t.stop());
-      systemStreamRef.current?.getTracks().forEach((t) => t.stop());
+      cleanupLocalTracks();
       audioCtxRef.current?.close();
       if (systemSilenceTimerRef.current) clearTimeout(systemSilenceTimerRef.current);
     };
-  }, []);
+  }, [cleanupLocalTracks, stopAliyunRecognition, stopWebSpeechRecognition]);
 
-  // 音量条渲染
-  const LevelBar = ({ level, color }: { level: number; color: string }) => (
-    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-zinc-100">
-      <div
-        className={`h-full rounded-full transition-all duration-75 ${color}`}
-        style={{ width: `${Math.min(level * 500, 100)}%` }}
-      />
-    </div>
-  );
+  useEffect(() => {
+    void loadAsrStatus();
+  }, [loadAsrStatus]);
 
   return (
     <div className="flex items-center gap-3">
@@ -311,6 +681,11 @@ export default function AudioRecorder() {
           >
             <Monitor size={14} />
           </button>
+          {asrStatus && (
+            <span className="rounded-full border border-zinc-200 bg-white px-2 py-1 text-[11px] text-zinc-500">
+              {asrStatus.mode === 'aliyun' ? '阿里云 ASR（实时）' : 'Web Speech（Demo）'}
+            </span>
+          )}
         </div>
       ) : (
         <>
@@ -358,6 +733,11 @@ export default function AudioRecorder() {
           <h4 className="mb-2 text-sm font-semibold text-zinc-800">
             Botless 双通道录音
           </h4>
+          {asrStatus && (
+            <p className="mb-2 rounded-md bg-zinc-50 px-2 py-1.5 text-[11px] text-zinc-500">
+              {asrStatus.message}
+            </p>
+          )}
           <div className="space-y-2 text-xs text-zinc-500 leading-relaxed">
             <p>
               点击「开始录音」后，系统会依次请求：
