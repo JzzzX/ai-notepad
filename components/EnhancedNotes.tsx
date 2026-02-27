@@ -1,12 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, Loader2, Copy, Check, FileDown, Send } from 'lucide-react';
+import { Sparkles, Loader2, Copy, Check, FileDown } from 'lucide-react';
 import { useMeetingStore } from '@/lib/store';
 import { enhanceNotes } from '@/lib/llm';
 import { buildUnifiedMeetingMarkdown } from '@/lib/meeting-export';
-
-type ShareChannel = 'feishu' | 'wecom';
 
 export default function EnhancedNotes() {
   const {
@@ -25,7 +23,6 @@ export default function EnhancedNotes() {
 
   const [copied, setCopied] = useState(false);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
-  const [sharingChannel, setSharingChannel] = useState<ShareChannel | null>(null);
   const [feedback, setFeedback] = useState('');
 
   const handleGenerate = async () => {
@@ -114,32 +111,8 @@ export default function EnhancedNotes() {
     }
   };
 
-  const handleShare = async (channel: ShareChannel) => {
-    if (sharingChannel) return;
-    setSharingChannel(channel);
-    setFeedback('');
-    try {
-      const res = await fetch('/api/share/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channel,
-          meetingTitle,
-          meetingDate,
-          enhancedNotes,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || 'Webhook 推送失败');
-      }
-      setFeedback(`${channel === 'feishu' ? '飞书' : '企业微信'} 推送成功`);
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : '未知错误';
-      setFeedback(`${channel === 'feishu' ? '飞书' : '企业微信'} 推送失败：${detail}`);
-    } finally {
-      setSharingChannel(null);
-    }
+  const handleExperimentalFeature = () => {
+    setFeedback('实验功能：后续开放飞书、企业微信 webhook 接入');
   };
 
   const canGenerate = status === 'ended' || segments.length > 0;
@@ -207,28 +180,11 @@ export default function EnhancedNotes() {
                 )}
               </button>
               <button
-                onClick={() => handleShare('feishu')}
-                disabled={!!sharingChannel}
+                onClick={handleExperimentalFeature}
                 className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-40"
-                title="推送飞书"
+                title="实验功能"
               >
-                {sharingChannel === 'feishu' ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Send size={14} />
-                )}
-              </button>
-              <button
-                onClick={() => handleShare('wecom')}
-                disabled={!!sharingChannel}
-                className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-40"
-                title="推送企业微信"
-              >
-                {sharingChannel === 'wecom' ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <span className="text-[11px] font-semibold">企微</span>
-                )}
+                <span className="text-[11px] font-semibold">实验</span>
               </button>
               <button
                 onClick={handleGenerate}
