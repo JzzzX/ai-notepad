@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Meeting {
+  id            String   @id @default(uuid())
+  title         String   @default("")
+  date          DateTime @default(now())
+  status        String   @default("idle")
+  duration      Int      @default(0)
+  userNotes     String   @default("")
+  enhancedNotes String   @default("")
+  speakers      String   @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  segments     TranscriptSegment[]
+  chatMessages ChatMessage[]
+}
+
+model TranscriptSegment {
+  id        String  @id @default(uuid())
+  speaker   String
+  text      String
+  startTime Float
+  endTime   Float
+  isFinal   Boolean @default(true)
+  order     Int     @default(0)
+
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}
+
+model ChatMessage {
+  id         String  @id @default(uuid())
+  role       String
+  content    String
+  timestamp  Float
+  templateId String?
+
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+}

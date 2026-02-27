@@ -2,6 +2,17 @@ import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import { TranscriptSegment, ChatMessage, Meeting } from './types';
 
+// 会议列表项（从 API 返回的精简结构）
+export interface MeetingListItem {
+  id: string;
+  title: string;
+  date: string;
+  status: string;
+  duration: number;
+  createdAt: string;
+  _count: { segments: number; chatMessages: number };
+}
+
 interface MeetingStore {
   // 当前会议状态
   meetingId: string;
@@ -35,6 +46,11 @@ interface MeetingStore {
   systemAudioActive: boolean;
   micActive: boolean;
 
+  // 会议列表
+  meetingList: MeetingListItem[];
+  isLoadingList: boolean;
+  isSaving: boolean;
+
   // Actions
   startMeeting: () => void;
   endMeeting: () => void;
@@ -52,6 +68,12 @@ interface MeetingStore {
   updateDuration: () => void;
   setAudioLevels: (mic: number, system: number) => void;
   reset: () => void;
+
+  // 持久化 Actions
+  saveMeeting: () => Promise<void>;
+  loadMeeting: (id: string) => Promise<void>;
+  loadMeetingList: () => Promise<void>;
+  deleteMeeting: (id: string) => Promise<void>;
 }
 
 export const useMeetingStore = create<MeetingStore>((set, get) => ({
@@ -73,6 +95,9 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
   systemLevel: 0,
   systemAudioActive: false,
   micActive: false,
+  meetingList: [],
+  isLoadingList: false,
+  isSaving: false,
 
   startMeeting: () =>
     set({
@@ -167,4 +192,108 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
       systemAudioActive: false,
       micActive: false,
     }),
+
+  // ---- 持久化 ----
+
+  saveMeeting: async () => {
+    const state = get();
+    if (state.segments.length === 0 && !state.userNotes && !state.enhancedNotes) {
+      return; // 没有内容不保存
+    }
+    set({ isSaving: true });
+    try {
+      await fetch('/api/meetings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: state.meetingId,
+          title: state.meetingTitle,
+          date: state.meetingDate,
+          status: state.status,
+          duration: state.duration,
+          userNotes: state.userNotes,
+          enhancedNotes: state.enhancedNotes,
+          speakers: state.speakers,
+          segments: state.segments,
+          chatMessages: state.chatMessages,
+        }),
+      });
+    } catch (e) {
+      console.error('保存会议失败:', e);
+    } finally {
+      set({ isSaving: false });
+    }
+  },
+
+  loadMeeting: async (id: string) => {
+    try {
+      const res = await fetch(`/api/meetings/${id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      set({
+        meetingId: data.id,
+        meetingTitle: data.title,
+        meetingDate: new Date(data.date).getTime(),
+        status: data.status as Meeting['status'],
+        duration: data.duration,
+        userNotes: data.userNotes,
+        enhancedNotes: data.enhancedNotes,
+        speakers: data.speakers,
+        segments: data.segments.map((s: TranscriptSegment) => ({
+          id: s.id,
+          speaker: s.speaker,
+          text: s.text,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          isFinal: s.isFinal,
+        })),
+        chatMessages: data.chatMessages.map((m: ChatMessage) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+          templateId: m.templateId,
+        })),
+        currentPartial: '',
+        recordingStartTime: null,
+        micLevel: 0,
+        systemLevel: 0,
+        systemAudioActive: false,
+        micActive: false,
+      });
+    } catch (e) {
+      console.error('加载会议失败:', e);
+    }
+  },
+
+  loadMeetingList: async () => {
+    set({ isLoadingList: true });
+    try {
+      const res = await fetch('/api/meetings');
+      if (res.ok) {
+        const data = await res.json();
+        set({ meetingList: data });
+      }
+    } catch (e) {
+      console.error('加载会议列表失败:', e);
+    } finally {
+      set({ isLoadingList: false });
+    }
+  },
+
+  deleteMeeting: async (id: string) => {
+    try {
+      await fetch(`/api/meetings/${id}`, { method: 'DELETE' });
+      // 从列表中移除
+      set((state) => ({
+        meetingList: state.meetingList.filter((m) => m.id !== id),
+      }));
+      // 如果删的是当前会议，重置
+      if (get().meetingId === id) {
+        get().reset();
+      }
+    } catch (e) {
+      console.error('删除会议失败:', e);
+    }
+  },
 }));
