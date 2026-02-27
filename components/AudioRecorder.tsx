@@ -105,6 +105,10 @@ function toInt16PcmBuffer(float32Data: Float32Array): ArrayBuffer {
   return pcm.buffer;
 }
 
+function createAliyunMessageId(): string {
+  return uuidv4().replace(/-/g, '');
+}
+
 export default function AudioRecorder() {
   const {
     status,
@@ -278,7 +282,7 @@ export default function AudioRecorder() {
           JSON.stringify({
             header: {
               appkey: channel.appKey,
-              message_id: uuidv4(),
+              message_id: createAliyunMessageId(),
               task_id: channel.taskId,
               namespace: 'SpeechTranscriber',
               name: 'StopTranscription',
@@ -365,14 +369,14 @@ export default function AudioRecorder() {
 
       const ws = new WebSocket(`${session.wsUrl}?token=${encodeURIComponent(session.token)}`);
       const sessionStartTime = Date.now();
-      const taskId = uuidv4();
+      const taskId = createAliyunMessageId();
 
       ws.onopen = () => {
         ws.send(
           JSON.stringify({
             header: {
               appkey: session.appKey,
-              message_id: uuidv4(),
+              message_id: createAliyunMessageId(),
               task_id: taskId,
               namespace: 'SpeechTranscriber',
               name: 'StartTranscription',
