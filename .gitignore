@@ -41,6 +41,7 @@ yarn-error.log*
 # database
 *.db
 *.db-journal
+/lib/generated/
 
 # typescript
 *.tsbuildinfo
