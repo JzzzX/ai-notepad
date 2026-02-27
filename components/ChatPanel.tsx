@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Bot, User, Loader2, Sparkles, ChevronUp } from 'lucide-react';
 import { useMeetingStore } from '@/lib/store';
 import { chatWithMeeting } from '@/lib/llm';
-import { templates, filterTemplates, findTemplateByCommand } from '@/lib/templates';
+import { templates, filterTemplates } from '@/lib/templates';
 import { v4 as uuidv4 } from 'uuid';
 import type { Template } from '@/lib/types';
 
