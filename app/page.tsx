@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
-import { Mic, RotateCcw, Save, Check, History, X, PenLine } from 'lucide-react';
+import {
+  Mic,
+  RotateCcw,
+  Save,
+  Check,
+  History,
+  X,
+  PenLine,
+  PlugZap,
+} from 'lucide-react';
 import AudioRecorder from '@/components/AudioRecorder';
 import TranscriptPanel from '@/components/TranscriptPanel';
 import NoteEditor from '@/components/NoteEditor';
@@ -10,6 +19,7 @@ import EnhancedNotes from '@/components/EnhancedNotes';
 import SpeakerManager from '@/components/SpeakerManager';
 import MeetingHistory from '@/components/MeetingHistory';
 import PromptSettings from '@/components/PromptSettings';
+import McpConnectorPanel from '@/components/McpConnectorPanel';
 import { useMeetingStore } from '@/lib/store';
 import { generateMeetingTitle } from '@/lib/llm';
 
@@ -98,6 +108,8 @@ export default function Home() {
   const [panelWidths, setPanelWidths] = useState<PanelWidths>(DEFAULT_PANEL_WIDTHS);
   const [widthsHydrated, setWidthsHydrated] = useState(false);
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
+  const [showMcpDrawer, setShowMcpDrawer] = useState(false);
+  const [mcpBaseUrl, setMcpBaseUrl] = useState('');
 
   // 首次挂载后再读取 localStorage，避免 SSR 与客户端首帧不一致导致 hydration 警告
   useEffect(() => {
@@ -293,12 +305,27 @@ export default function Home() {
             <p className="text-[11px] text-[#8C7A6B] font-bold uppercase tracking-widest">Intelligent Assistant</p>
           </div>
           <button
-            onClick={() => setShowHistoryDrawer(true)}
+            onClick={() => {
+              setShowMcpDrawer(false);
+              setShowHistoryDrawer(true);
+            }}
             className="ml-4 flex items-center gap-1.5 rounded-xl border border-[#D8CEC4] bg-[#F7F3EE] px-3.5 py-1.5 text-[13px] font-medium text-[#5C4D42] transition-all hover:bg-[#EFE9E2] hover:border-[#C4B6A9] hover:shadow-sm"
             title="打开会议记录"
           >
             <History size={14} />
             会议记录
+          </button>
+          <button
+            onClick={() => {
+              setShowHistoryDrawer(false);
+              setMcpBaseUrl(window.location.origin);
+              setShowMcpDrawer(true);
+            }}
+            className="flex items-center gap-1.5 rounded-xl border border-[#D8CEC4] bg-[#F7F3EE] px-3.5 py-1.5 text-[13px] font-medium text-[#5C4D42] transition-all hover:bg-[#EFE9E2] hover:border-[#C4B6A9] hover:shadow-sm"
+            title="查看连接器接入说明"
+          >
+            <PlugZap size={14} />
+            连接器
           </button>
         </div>
 
@@ -380,6 +407,12 @@ export default function Home() {
           </div>
         </aside>
       </div>
+
+      <McpConnectorPanel
+        open={showMcpDrawer}
+        baseUrl={mcpBaseUrl}
+        onClose={() => setShowMcpDrawer(false)}
+      />
 
       {/* 主体 */}
       <main
