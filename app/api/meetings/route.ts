@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
 interface SegmentPayload {
   id: string;
@@ -19,8 +20,38 @@ interface ChatMessagePayload {
 }
 
 // GET /api/meetings — 获取会议列表
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const query = searchParams.get('query')?.trim() || '';
+  const dateFrom = searchParams.get('dateFrom');
+  const dateTo = searchParams.get('dateTo');
+  const folderId = searchParams.get('folderId');
+
+  const where: Prisma.MeetingWhereInput = {};
+
+  if (query) {
+    where.OR = [
+      { title: { contains: query } },
+      { enhancedNotes: { contains: query } },
+    ];
+  }
+
+  if (dateFrom || dateTo) {
+    where.date = {};
+    if (dateFrom) {
+      where.date.gte = new Date(`${dateFrom}T00:00:00`);
+    }
+    if (dateTo) {
+      where.date.lte = new Date(`${dateTo}T23:59:59.999`);
+    }
+  }
+
+  if (folderId) {
+    where.folderId = folderId === '__ungrouped' ? null : folderId;
+  }
+
   const meetings = await prisma.meeting.findMany({
+    where,
     orderBy: { date: 'desc' },
     select: {
       id: true,
@@ -29,6 +60,8 @@ export async function GET() {
       status: true,
       duration: true,
       createdAt: true,
+      folderId: true,
+      folder: true,
       _count: { select: { segments: true, chatMessages: true } },
     },
   });
@@ -44,6 +77,7 @@ export async function POST(req: NextRequest) {
     date,
     status,
     duration,
+    folderId,
     userNotes,
     enhancedNotes,
     speakers,
@@ -65,6 +99,7 @@ export async function POST(req: NextRequest) {
         date: normalizedDate,
         status: status || 'ended',
         duration: duration || 0,
+        folderId: folderId || null,
         userNotes: userNotes || '',
         enhancedNotes: enhancedNotes || '',
         speakers: JSON.stringify(speakers || {}),
@@ -74,6 +109,7 @@ export async function POST(req: NextRequest) {
         date: normalizedDate,
         status: status || 'ended',
         duration: duration || 0,
+        folderId: folderId || null,
         userNotes: userNotes || '',
         enhancedNotes: enhancedNotes || '',
         speakers: JSON.stringify(speakers || {}),
@@ -119,6 +155,7 @@ export async function POST(req: NextRequest) {
     return tx.meeting.findUnique({
       where: { id: upsertedMeeting.id },
       include: {
+        folder: true,
         segments: { orderBy: { order: 'asc' } },
         chatMessages: { orderBy: { timestamp: 'asc' } },
       },

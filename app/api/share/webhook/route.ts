@@ -17,11 +17,23 @@ function resolveWebhookUrl(channel: WebhookChannel, inputUrl?: string): string {
   return process.env.WECOM_WEBHOOK_URL || '';
 }
 
-function buildPayload(channel: WebhookChannel, content: string) {
+function buildPayload(channel: WebhookChannel, content: string, title: string) {
   if (channel === 'feishu') {
+    const paragraphs = content
+      .split('\n')
+      .filter((line) => line.trim())
+      .map((line) => [{ tag: 'text', text: line }]);
+
     return {
-      msg_type: 'text',
-      content: { text: content },
+      msg_type: 'post',
+      content: {
+        post: {
+          zh_cn: {
+            title,
+            content: paragraphs,
+          },
+        },
+      },
     };
   }
   return {
@@ -63,7 +75,7 @@ export async function POST(req: NextRequest) {
       enhancedNotes,
     });
 
-    const payload = buildPayload(channel, markdown);
+    const payload = buildPayload(channel, markdown, body.meetingTitle?.trim() || '会议纪要');
     const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -88,4 +100,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

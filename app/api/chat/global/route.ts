@@ -68,6 +68,13 @@ function buildNoResultMessage(filters: GlobalChatFilters): string {
   if (filters.titleKeyword) conditions.push(`标题含“${filters.titleKeyword}”`);
   if (filters.dateFrom) conditions.push(`开始时间 >= ${filters.dateFrom}`);
   if (filters.dateTo) conditions.push(`结束时间 <= ${filters.dateTo}`);
+  if (filters.folderId) {
+    conditions.push(
+      filters.folderId === '__ungrouped'
+        ? '仅未分组会议'
+        : `文件夹 = ${filters.folderId}`
+    );
+  }
 
   if (conditions.length === 0) {
     return '未检索到可用历史会议。请先保存会议记录后再进行跨会议提问。';
@@ -140,4 +147,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

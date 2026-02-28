@@ -6,6 +6,7 @@ import {
   Meeting,
   PromptOptions,
   RecordingOptions,
+  Folder,
 } from './types';
 
 // 会议列表项（从 API 返回的精简结构）
@@ -16,7 +17,16 @@ export interface MeetingListItem {
   status: string;
   duration: number;
   createdAt: string;
+  folderId: string | null;
+  folder?: Folder | null;
   _count: { segments: number; chatMessages: number };
+}
+
+export interface MeetingListFilters {
+  query?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  folderId?: string | null;
 }
 
 interface MeetingStore {
@@ -26,6 +36,7 @@ interface MeetingStore {
   meetingDate: number;
   status: Meeting['status'];
   duration: number;
+  currentFolderId: string | null;
 
   // 转写
   segments: TranscriptSegment[];
@@ -59,6 +70,8 @@ interface MeetingStore {
   isLoadingList: boolean;
   isSaving: boolean;
   isPersistedMeeting: boolean;
+  folders: Folder[];
+  isLoadingFolders: boolean;
 
   // Actions
   startMeeting: () => void;
@@ -76,6 +89,7 @@ interface MeetingStore {
   setIsChatLoading: (v: boolean) => void;
   setPromptOptions: (patch: Partial<PromptOptions>) => void;
   setRecordingOptions: (patch: Partial<RecordingOptions>) => void;
+  setCurrentFolderId: (folderId: string | null) => void;
   updateDuration: () => void;
   setAudioLevels: (mic: number, system: number) => void;
   removeSegment: (segmentId: string) => void;
@@ -84,8 +98,12 @@ interface MeetingStore {
   // 持久化 Actions
   saveMeeting: (options?: { allowEmpty?: boolean }) => Promise<void>;
   loadMeeting: (id: string) => Promise<void>;
-  loadMeetingList: () => Promise<void>;
+  loadMeetingList: (filters?: MeetingListFilters) => Promise<void>;
   deleteMeeting: (id: string) => Promise<void>;
+  loadFolders: () => Promise<void>;
+  createFolder: (input: { name: string; color: string }) => Promise<Folder | null>;
+  deleteFolder: (folderId: string) => Promise<void>;
+  updateMeetingFolder: (meetingId: string, folderId: string | null) => Promise<void>;
 }
 
 export const useMeetingStore = create<MeetingStore>((set, get) => ({
@@ -94,6 +112,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
   meetingDate: Date.now(),
   status: 'idle',
   duration: 0,
+  currentFolderId: null,
   segments: [],
   currentPartial: '',
   userNotes: '',
@@ -120,6 +139,8 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
   isLoadingList: false,
   isSaving: false,
   isPersistedMeeting: false,
+  folders: [],
+  isLoadingFolders: false,
 
   startMeeting: () =>
     set({
@@ -185,6 +206,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
     set((state) => ({
       recordingOptions: { ...state.recordingOptions, ...patch },
     })),
+  setCurrentFolderId: (folderId) => set({ currentFolderId: folderId }),
 
   updateDuration: () => {
     const { recordingStartTime } = get();
@@ -213,6 +235,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
       meetingDate: Date.now(),
       status: 'idle',
       duration: 0,
+      currentFolderId: null,
       segments: [],
       currentPartial: '',
       userNotes: '',
@@ -258,6 +281,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
           date: state.meetingDate,
           status: state.status,
           duration: state.duration,
+          folderId: state.currentFolderId,
           userNotes: state.userNotes,
           enhancedNotes: state.enhancedNotes,
           speakers: state.speakers,
@@ -284,6 +308,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
         meetingDate: new Date(data.date).getTime(),
         status: data.status as Meeting['status'],
         duration: data.duration,
+        currentFolderId: data.folderId ?? null,
         userNotes: data.userNotes,
         enhancedNotes: data.enhancedNotes,
         speakers: data.speakers,
@@ -315,10 +340,17 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
     }
   },
 
-  loadMeetingList: async () => {
+  loadMeetingList: async (filters) => {
     set({ isLoadingList: true });
     try {
-      const res = await fetch('/api/meetings');
+      const params = new URLSearchParams();
+      if (filters?.query?.trim()) params.set('query', filters.query.trim());
+      if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
+      if (filters?.dateTo) params.set('dateTo', filters.dateTo);
+      if (filters?.folderId) params.set('folderId', filters.folderId);
+
+      const queryString = params.toString();
+      const res = await fetch(`/api/meetings${queryString ? `?${queryString}` : ''}`);
       if (res.ok) {
         const data = await res.json();
         set({ meetingList: data });
@@ -343,6 +375,88 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
       }
     } catch (e) {
       console.error('删除会议失败:', e);
+    }
+  },
+
+  loadFolders: async () => {
+    set({ isLoadingFolders: true });
+    try {
+      const res = await fetch('/api/folders');
+      if (!res.ok) throw new Error('加载文件夹失败');
+      const data = (await res.json()) as Folder[];
+      set({ folders: data });
+    } catch (e) {
+      console.error('加载文件夹失败:', e);
+    } finally {
+      set({ isLoadingFolders: false });
+    }
+  },
+
+  createFolder: async (input) => {
+    try {
+      const res = await fetch('/api/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { error?: string }).error || '创建文件夹失败');
+      }
+      const folder = data as Folder;
+      set((state) => ({
+        folders: [...state.folders, folder].sort((a, b) => a.sortOrder - b.sortOrder),
+      }));
+      return folder;
+    } catch (e) {
+      console.error('创建文件夹失败:', e);
+      return null;
+    }
+  },
+
+  deleteFolder: async (folderId) => {
+    try {
+      const res = await fetch(`/api/folders/${folderId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('删除文件夹失败');
+      set((state) => ({
+        folders: state.folders.filter((folder) => folder.id !== folderId),
+        meetingList: state.meetingList.map((meeting) =>
+          meeting.folderId === folderId
+            ? { ...meeting, folderId: null, folder: null }
+            : meeting
+        ),
+        currentFolderId: state.currentFolderId === folderId ? null : state.currentFolderId,
+      }));
+    } catch (e) {
+      console.error('删除文件夹失败:', e);
+    }
+  },
+
+  updateMeetingFolder: async (meetingId, folderId) => {
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error((data as { error?: string }).error || '更新会议分组失败');
+      }
+
+      const nextFolder =
+        folderId === null ? null : get().folders.find((folder) => folder.id === folderId) || null;
+
+      set((state) => ({
+        meetingList: state.meetingList.map((meeting) =>
+          meeting.id === meetingId
+            ? { ...meeting, folderId, folder: nextFolder }
+            : meeting
+        ),
+        currentFolderId: state.meetingId === meetingId ? folderId : state.currentFolderId,
+      }));
+    } catch (e) {
+      console.error('更新会议分组失败:', e);
     }
   },
 }));

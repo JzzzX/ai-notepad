@@ -11,6 +11,7 @@ export async function GET(
   const meeting = await prisma.meeting.findUnique({
     where: { id },
     include: {
+      folder: true,
       segments: { orderBy: { order: 'asc' } },
       chatMessages: { orderBy: { timestamp: 'asc' } },
     },
@@ -33,13 +34,24 @@ export async function PUT(
 ) {
   const { id } = await params;
   const body = await req.json();
-  const { title, status, duration, userNotes, enhancedNotes, speakers, segments, chatMessages } = body;
+  const {
+    title,
+    status,
+    duration,
+    folderId,
+    userNotes,
+    enhancedNotes,
+    speakers,
+    segments,
+    chatMessages,
+  } = body;
 
   // 更新会议基本信息
   const updateData: Record<string, unknown> = {};
   if (title !== undefined) updateData.title = title;
   if (status !== undefined) updateData.status = status;
   if (duration !== undefined) updateData.duration = duration;
+  if (folderId !== undefined) updateData.folderId = folderId || null;
   if (userNotes !== undefined) updateData.userNotes = userNotes;
   if (enhancedNotes !== undefined) updateData.enhancedNotes = enhancedNotes;
   if (speakers !== undefined) updateData.speakers = JSON.stringify(speakers);
@@ -85,7 +97,16 @@ export async function PUT(
     });
   }
 
-  return NextResponse.json(meeting);
+  const hydratedMeeting = await prisma.meeting.findUnique({
+    where: { id: meeting.id },
+    include: {
+      folder: true,
+      segments: { orderBy: { order: 'asc' } },
+      chatMessages: { orderBy: { timestamp: 'asc' } },
+    },
+  });
+
+  return NextResponse.json(hydratedMeeting);
 }
 
 // DELETE /api/meetings/[id] — 删除会议

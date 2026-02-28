@@ -31,7 +31,9 @@ export default function ChatPanel() {
     speakers,
     promptOptions,
     status,
+    folders,
     addChatMessage,
+    loadFolders,
     setIsChatLoading,
   } = useMeetingStore();
 
@@ -51,6 +53,7 @@ export default function ChatPanel() {
   const [globalTitleFilter, setGlobalTitleFilter] = useState('');
   const [globalDateFrom, setGlobalDateFrom] = useState('');
   const [globalDateTo, setGlobalDateTo] = useState('');
+  const [globalFolderFilter, setGlobalFolderFilter] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -80,6 +83,10 @@ export default function ChatPanel() {
   useEffect(() => {
     loadTemplates();
   }, [loadTemplates]);
+
+  useEffect(() => {
+    void loadFolders();
+  }, [loadFolders]);
 
   const filteredTemplates = useMemo(() => {
     return filterTemplates(templates, templateFilter);
@@ -161,6 +168,7 @@ export default function ChatPanel() {
                 titleKeyword: globalTitleFilter,
                 dateFrom: globalDateFrom,
                 dateTo: globalDateTo,
+                folderId: globalFolderFilter || undefined,
               },
               promptOptions
             )
@@ -437,6 +445,22 @@ export default function ChatPanel() {
                 />
               </label>
             </div>
+            <label className="block text-xs font-medium text-stone-500">
+              文件夹范围
+              <select
+                value={globalFolderFilter}
+                onChange={(e) => setGlobalFolderFilter(e.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-black/[0.04] bg-white px-4 py-2.5 text-sm text-stone-700 shadow-sm focus:ring-2 focus:ring-sky-500/20 focus:outline-none"
+              >
+                <option value="">全部文件夹</option>
+                <option value="__ungrouped">仅未分组</option>
+                {folders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
       )}

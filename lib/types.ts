@@ -35,6 +35,15 @@ export interface RecordingOptions {
   autoStopMinutes: number;
 }
 
+export interface Folder {
+  id: string;
+  name: string;
+  color: string;
+  sortOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Template {
   id: string;
   name: string;

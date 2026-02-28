@@ -18,9 +18,22 @@ model Meeting {
   speakers      String   @default("{}")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  folderId      String?
 
   segments     TranscriptSegment[]
   chatMessages ChatMessage[]
+  folder       Folder?             @relation(fields: [folderId], references: [id], onDelete: SetNull)
+}
+
+model Folder {
+  id        String    @id @default(uuid())
+  name      String
+  color     String    @default("#94a3b8")
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  meetings Meeting[]
 }
 
 model TranscriptSegment {
