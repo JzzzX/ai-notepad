@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
-import { Mic, RotateCcw, Save, Check, History, X } from 'lucide-react';
+import { Mic, RotateCcw, Save, Check, History, X, PenLine } from 'lucide-react';
 import AudioRecorder from '@/components/AudioRecorder';
 import TranscriptPanel from '@/components/TranscriptPanel';
 import NoteEditor from '@/components/NoteEditor';
@@ -277,12 +277,18 @@ export default function Home() {
         </div>
 
         <div className="flex min-w-0 items-center gap-4">
-          <input
-            value={meetingTitle}
-            onChange={(e) => setMeetingTitle(e.target.value)}
-            placeholder="无标题文档"
-            className="w-36 rounded-xl border-transparent bg-transparent px-3 py-1.5 text-lg font-serif font-semibold text-[#3A2E25] placeholder:text-[#A69B8F] transition-all hover:bg-[#F7F3EE] focus:bg-[#F7F3EE] focus:shadow-sm focus:outline-none focus:ring-2 focus:ring-[#D8CEC4] sm:w-52 md:w-64 text-center"
-          />
+          <div className="group relative flex items-center rounded-xl transition-all hover:bg-[#F7F3EE] hover:ring-1 hover:ring-[#D8CEC4] focus-within:bg-[#FCFAF8] focus-within:ring-2 focus-within:ring-[#D8CEC4] focus-within:shadow-sm">
+            <span className="pl-3 text-[#A69B8F] transition-colors group-focus-within:text-[#8C7A6B]">
+              <PenLine size={15} />
+            </span>
+            <input
+              value={meetingTitle}
+              onChange={(e) => setMeetingTitle(e.target.value)}
+              placeholder="无标题文档"
+              className="w-32 bg-transparent py-1.5 pl-2 pr-3 text-base font-serif font-semibold text-[#3A2E25] placeholder:text-[#A69B8F] focus:outline-none sm:w-48 md:w-56"
+              title="编辑文档标题"
+            />
+          </div>
 
           <AudioRecorder />
 
