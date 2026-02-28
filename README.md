@@ -72,7 +72,7 @@ npm run dev
   - `ai-notepad://search/meetings/预算/2026-02-01/2026-02-28/_/10`（搜索结果）
 - 返回内容：JSON 资源，包含会议列表、单会议详情（转写/笔记/聊天记录）和按关键词/日期/文件夹过滤的搜索结果
 
-适合后续接入 Claude Desktop 或其他支持 MCP 的客户端。当前实现为无状态、只读、Token 鉴权，优先满足 Demo 接入和本地数据安全。
+适合后续接入 Claude Code 或其他支持 MCP 的 Agent / 客户端。当前实现为无状态、只读、Token 鉴权，优先满足 Demo 接入和本地数据安全。
 
 ## 与 Granola 的差异化
 

@@ -7,9 +7,9 @@ import {
   Check,
   Copy,
   Database,
-  PlugZap,
   Server,
   Shield,
+  Workflow,
   X,
 } from 'lucide-react';
 
@@ -130,7 +130,7 @@ export default function McpConnectorPanel({
         type="button"
         className="absolute inset-0 bg-[#3A2E25]/18"
         onClick={onClose}
-        aria-label="关闭连接器说明"
+        aria-label="关闭生态接入说明"
       />
 
       <aside
@@ -142,15 +142,16 @@ export default function McpConnectorPanel({
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#EAF4FF] text-sky-600">
-                <PlugZap size={18} strokeWidth={2.2} />
+                <Workflow size={18} strokeWidth={2.2} />
               </div>
               <div>
                 <h3 className="text-base font-serif font-semibold text-[#4A3C31]">
-                  连接器
+                  生态接入
                 </h3>
                 <p className="mt-1 max-w-[280px] text-xs leading-5 text-[#8C7A6B]">
-                  这是对外只读的 MCP 接口，供 Claude Desktop、Cherry Studio
-                  等外部 AI 客户端读取会议上下文，不影响当前网页主流程。
+                  这是对外只读的 MCP 接口，优先面向 Claude Code
+                  这类支持 MCP 的 Agent，也方便后续接入 OpenClaw
+                  一类生态工具，不影响当前网页主流程。
                 </p>
               </div>
             </div>
@@ -159,7 +160,7 @@ export default function McpConnectorPanel({
               type="button"
               onClick={onClose}
               className="rounded-lg p-1.5 text-[#8C7A6B] transition-colors hover:bg-[#EFE9E2] hover:text-[#4A3C31]"
-              aria-label="关闭连接器说明"
+              aria-label="关闭生态接入说明"
             >
               <X size={16} />
             </button>
@@ -170,7 +171,7 @@ export default function McpConnectorPanel({
           <InfoCard
             icon={<Server size={16} />}
             title="接入地址"
-            description="外部 MCP 客户端连接到这个 HTTP 端点即可读取会议数据。"
+            description="支持 MCP 的 Agent 或生态工具连接到这个 HTTP 端点后，即可读取会议数据。"
             value={endpoint}
             onCopy={() => handleCopy('endpoint', endpoint)}
             copied={copiedKey === 'endpoint'}
@@ -217,7 +218,7 @@ export default function McpConnectorPanel({
           <InfoCard
             icon={<Braces size={16} />}
             title="配置示例"
-            description='不同客户端字段名可能略有差异，但核心信息就是 url + Authorization 头。'
+            description='不同 Agent/客户端字段名可能略有差异，但核心信息就是 url + Authorization 头。'
             value={configSnippet}
             onCopy={() => handleCopy('config', configSnippet)}
             copied={copiedKey === 'config'}

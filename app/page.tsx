@@ -9,7 +9,7 @@ import {
   History,
   X,
   PenLine,
-  PlugZap,
+  Workflow,
 } from 'lucide-react';
 import AudioRecorder from '@/components/AudioRecorder';
 import TranscriptPanel from '@/components/TranscriptPanel';
@@ -322,10 +322,10 @@ export default function Home() {
               setShowMcpDrawer(true);
             }}
             className="flex items-center gap-1.5 rounded-xl border border-[#D8CEC4] bg-[#F7F3EE] px-3.5 py-1.5 text-[13px] font-medium text-[#5C4D42] transition-all hover:bg-[#EFE9E2] hover:border-[#C4B6A9] hover:shadow-sm"
-            title="查看连接器接入说明"
+            title="查看生态接入说明"
           >
-            <PlugZap size={14} />
-            连接器
+            <Workflow size={14} />
+            生态接入
           </button>
         </div>
 
