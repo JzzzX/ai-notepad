@@ -2,6 +2,16 @@
 
 Piedras 是一个类 Granola 的 AI 会议记录 Demo，定位为“本地优先、中文优先、可扩展”的 Web 端会议助手。它不是单纯的转写器，而是把实时语音转写、手写笔记、AI 结构化总结、单会议问答、跨会议检索和轻量生态接入整合到同一个工作台里。
 
+## 线上演示
+
+- Public Demo: `https://piedras.vercel.app`
+- Vercel Project: `piedras`
+- 当前线上环境已接通：
+  - Vercel
+  - Prisma Postgres
+  - 阿里云 ASR
+  - Gemini
+
 当前版本适合：
 
 - 个人或小团队做会议记录 Demo / 原型验证
@@ -162,6 +172,11 @@ npm run dev
 
 - `npm run dev` 当前默认走 `next dev --webpack`，是为了避免 Turbopack 在本项目上的首次编译卡顿
 - 如需自行对比，可使用 `npm run dev:turbo`
+- 如果你希望本地开发直接复用 Vercel 的云端环境变量，可执行：
+
+```bash
+npx vercel env pull .env.local --environment=development
+```
 
 ## 环境变量说明
 
@@ -287,6 +302,13 @@ npm run dev
 - Hosting: Vercel
 - Database: Prisma Postgres 或 Neon Postgres
 
+当前仓库已完成一套可用的线上部署基线：
+
+- Vercel Project: `piedras`
+- Production URL: `https://piedras.vercel.app`
+- Database: Prisma Postgres
+- 已对齐环境：`production` / `preview` / `development`
+
 原因：
 
 - 当前项目使用 Next.js App Router + Prisma，和 Vercel 的 Node Runtime 配合最直接
@@ -306,6 +328,14 @@ npm run dev
 - `MCP_SERVER_TOKEN`
 - 如需阿里云转写，再补 `ALICLOUD_*`
 
+建议三个目标环境都补齐：
+
+- `production`
+- `preview`
+- `development`
+
+这样 PR 预览、线上正式环境、`vercel env pull` 本地联调会保持一致。
+
 ### 3. 首次执行数据库迁移
 
 本地执行：
@@ -321,6 +351,14 @@ npx vercel --prod
 ```
 
 仓库已包含 [vercel.json](/Users/jguinsoo/Desktop/ai_notepad/vercel.json)，会在 Vercel 构建时先执行 `prisma generate` 再执行 `next build`。
+
+如果你已经完成项目链接，也可以先拉取云端环境再本地模拟：
+
+```bash
+npx vercel env pull .env.local --environment=development
+npx prisma migrate deploy
+npm run dev
+```
 
 ### 5. 部署后手动回归
 
