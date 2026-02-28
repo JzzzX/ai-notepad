@@ -48,6 +48,7 @@ export default function TemplateManager({
   onSaved,
 }: TemplateManagerProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<TemplateForm>(DEFAULT_FORM);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState('');
@@ -60,23 +61,35 @@ export default function TemplateManager({
 
   useEffect(() => {
     if (!open) return;
-    if (selectedTemplate) {
+    if (isCreating) {
+      setForm(DEFAULT_FORM);
+    } else if (selectedTemplate) {
       setForm(toForm(selectedTemplate));
     } else {
       setForm(DEFAULT_FORM);
     }
-  }, [open, selectedTemplate]);
+  }, [isCreating, open, selectedTemplate]);
 
   useEffect(() => {
     if (!open) return;
     if (templates.length === 0) {
-      setSelectedId(null);
+      if (!isCreating) {
+        setSelectedId(null);
+      }
       return;
     }
-    if (!selectedId || !templates.some((t) => t.id === selectedId)) {
+    if (!isCreating && (!selectedId || !templates.some((t) => t.id === selectedId))) {
       setSelectedId(templates[0].id);
     }
-  }, [open, templates, selectedId]);
+  }, [isCreating, open, templates, selectedId]);
+
+  useEffect(() => {
+    if (open) return;
+    setIsCreating(false);
+    setSelectedId(null);
+    setForm(DEFAULT_FORM);
+    setError('');
+  }, [open]);
 
   if (!open) return null;
 
@@ -127,6 +140,7 @@ export default function TemplateManager({
         throw new Error(data.error || '保存模板失败');
       }
       await onSaved();
+      setIsCreating(false);
       setSelectedId(data.id || selectedId);
     } catch (e) {
       setError(e instanceof Error ? e.message : '保存模板失败');
@@ -151,6 +165,7 @@ export default function TemplateManager({
         throw new Error(data.error || '删除模板失败');
       }
       await onSaved();
+      setIsCreating(false);
       setSelectedId(null);
       setForm(DEFAULT_FORM);
     } catch (e) {
@@ -161,6 +176,7 @@ export default function TemplateManager({
   };
 
   const handleCreateNew = () => {
+    setIsCreating(true);
     setSelectedId(null);
     setForm(DEFAULT_FORM);
     setError('');
@@ -197,11 +213,17 @@ export default function TemplateManager({
                 <div
                   key={template.id}
                   className={`rounded-md border px-2 py-2 transition-colors ${
-                    template.id === selectedId ? 'border-zinc-400 bg-zinc-50' : 'border-zinc-100'
+                    !isCreating && template.id === selectedId
+                      ? 'border-zinc-400 bg-zinc-50'
+                      : 'border-zinc-100'
                   }`}
                 >
                   <button
-                    onClick={() => setSelectedId(template.id)}
+                    onClick={() => {
+                      setIsCreating(false);
+                      setSelectedId(template.id);
+                      setError('');
+                    }}
                     className="w-full text-left"
                   >
                     <div className="flex items-center justify-between gap-1">
@@ -239,6 +261,12 @@ export default function TemplateManager({
 
           <div className="flex min-h-0 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              {isCreating && (
+                <div className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                  正在创建用户模板，可直接编辑右侧表单内容。
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-xs text-zinc-500">
                   名称
@@ -327,7 +355,7 @@ export default function TemplateManager({
                 disabled={isBusy || isReadOnly}
                 className="rounded-md bg-zinc-800 px-3 py-1.5 text-xs text-white transition-colors hover:bg-zinc-700 disabled:opacity-40"
               >
-                {selectedTemplate && !selectedTemplate.isSystem ? '保存修改' : '创建模板'}
+                {isCreating ? '创建模板' : selectedTemplate && !selectedTemplate.isSystem ? '保存修改' : '创建模板'}
               </button>
             </div>
           </div>
