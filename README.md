@@ -1,6 +1,6 @@
-# AI Notepad
+# piedras
 
-类 Granola 的 AI 会议记录 Demo，定位为“本地优先、中文优先、可扩展”的 Web 端会议助手。它不是单纯的转写器，而是把实时语音转写、手写笔记、AI 结构化总结、单会议问答、跨会议检索和轻量生态接入整合到同一个工作台里。
+piedras 是一个类 Granola 的 AI 会议记录 Demo，定位为“本地优先、中文优先、可扩展”的 Web 端会议助手。它不是单纯的转写器，而是把实时语音转写、手写笔记、AI 结构化总结、单会议问答、跨会议检索和轻量生态接入整合到同一个工作台里。
 
 当前版本适合：
 
@@ -280,10 +280,10 @@ Authorization: Bearer <MCP_SERVER_TOKEN>
 
 当前暴露的资源：
 
-- `ai-notepad://meetings/list`
-- `ai-notepad://meetings/{id}`
-- `ai-notepad://search/meetings`
-- `ai-notepad://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}`
+- `piedras://meetings/list`
+- `piedras://meetings/{id}`
+- `piedras://search/meetings`
+- `piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}`
 
 说明：
 
@@ -291,7 +291,7 @@ Authorization: Bearer <MCP_SERVER_TOKEN>
 - 示例：
 
 ```text
-ai-notepad://search/meetings/预算/2026-02-01/2026-02-28/_/10
+piedras://search/meetings/预算/2026-02-01/2026-02-28/_/10
 ```
 
 前端顶部已提供“生态接入”面板，用于展示接入地址、资源 URI 和示例配置。

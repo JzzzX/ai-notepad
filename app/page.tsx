@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import {
-  Mic,
   RotateCcw,
   Save,
   Check,
@@ -20,6 +19,7 @@ import SpeakerManager from '@/components/SpeakerManager';
 import MeetingHistory from '@/components/MeetingHistory';
 import PromptSettings from '@/components/PromptSettings';
 import McpConnectorPanel from '@/components/McpConnectorPanel';
+import PiedrasMark from '@/components/PiedrasMark';
 import { useMeetingStore } from '@/lib/store';
 import { generateMeetingTitle } from '@/lib/llm';
 
@@ -297,12 +297,16 @@ export default function Home() {
       {/* 顶栏 */}
       <header className="sticky top-0 z-30 flex items-center justify-between bg-[#EFE9E2]/80 backdrop-blur-md px-4 py-5 md:px-8 border-b border-[#D8CEC4]/50">
         <div className="flex items-center gap-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-500/20">
-            <Mic size={18} strokeWidth={2.5} />
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2B2420] text-[#F5EEE6] shadow-lg shadow-[#2B2420]/20">
+            <PiedrasMark className="h-7 w-7" />
           </div>
           <div>
-            <h1 className="text-lg font-serif font-bold text-[#4A3C31] tracking-tight">AI Notepad</h1>
-            <p className="text-[11px] text-[#8C7A6B] font-bold uppercase tracking-widest">Intelligent Assistant</p>
+            <h1 className="text-lg font-serif font-bold lowercase text-[#3F3229] tracking-tight">
+              piedras
+            </h1>
+            <p className="text-[11px] text-[#8C7A6B] font-bold uppercase tracking-[0.24em]">
+              Spoken Notes, Quietly Held
+            </p>
           </div>
           <button
             onClick={() => {

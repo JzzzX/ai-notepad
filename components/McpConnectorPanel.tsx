@@ -94,7 +94,7 @@ export default function McpConnectorPanel({
       JSON.stringify(
         {
           mcpServers: {
-            'ai-notepad': {
+            piedras: {
               url: endpoint,
               headers: {
                 Authorization: 'Bearer <MCP_SERVER_TOKEN>',
@@ -196,19 +196,19 @@ export default function McpConnectorPanel({
             title="可读取资源"
             description="当前开放了会议列表、单会议详情，以及搜索帮助与搜索结果模板。"
             value={[
-              'ai-notepad://meetings/list',
-              'ai-notepad://meetings/{id}',
-              'ai-notepad://search/meetings',
-              'ai-notepad://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}',
+              'piedras://meetings/list',
+              'piedras://meetings/{id}',
+              'piedras://search/meetings',
+              'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}',
             ].join('\n')}
             onCopy={() =>
               handleCopy(
                 'resources',
                 [
-                  'ai-notepad://meetings/list',
-                  'ai-notepad://meetings/{id}',
-                  'ai-notepad://search/meetings',
-                  'ai-notepad://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}',
+                  'piedras://meetings/list',
+                  'piedras://meetings/{id}',
+                  'piedras://search/meetings',
+                  'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}',
                 ].join('\n')
               )
             }
@@ -227,7 +227,7 @@ export default function McpConnectorPanel({
           <div className="rounded-2xl border border-dashed border-[#D8CEC4] bg-[#FCFAF8] px-4 py-3 text-xs leading-5 text-[#8C7A6B]">
             搜索模板里，空值请使用 `_` 占位。例如：
             <div className="mt-2 rounded-xl bg-[#F5EFE8] px-3 py-2 text-[#4A3C31]">
-              ai-notepad://search/meetings/预算/2026-02-01/2026-02-28/_/10
+              piedras://search/meetings/预算/2026-02-01/2026-02-28/_/10
             </div>
           </div>
         </div>

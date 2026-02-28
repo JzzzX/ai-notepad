@@ -2,11 +2,11 @@ import { Prisma } from '@prisma/client';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { prisma } from '@/lib/db';
 
-const LIST_URI = 'ai-notepad://meetings/list';
-const DETAIL_TEMPLATE = 'ai-notepad://meetings/{id}';
-const SEARCH_URI = 'ai-notepad://search/meetings';
+const LIST_URI = 'piedras://meetings/list';
+const DETAIL_TEMPLATE = 'piedras://meetings/{id}';
+const SEARCH_URI = 'piedras://search/meetings';
 const SEARCH_TEMPLATE =
-  'ai-notepad://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}';
+  'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}';
 
 const meetingSummarySelect = {
   id: true,
@@ -289,9 +289,9 @@ function jsonResource(uri: string, payload: unknown) {
 export function createMcpServer() {
   const server = new McpServer(
     {
-      name: 'ai-notepad-mcp',
+      name: 'piedras-mcp',
       version: '1.0.0',
-      title: 'AI Notepad MCP',
+      title: 'piedras MCP',
     },
     {
       capabilities: {
@@ -334,9 +334,9 @@ export function createMcpServer() {
         template: SEARCH_TEMPLATE,
         note: '占位符顺序为 query/dateFrom/dateTo/folderId/limit；缺省值请使用下划线 "_" 占位。',
         examples: [
-          'ai-notepad://search/meetings/预算/2026-02-01/2026-02-28/_/10',
-          'ai-notepad://search/meetings/_/_/_/__ungrouped/20',
-          'ai-notepad://search/meetings/复盘/_/_/_/_',
+          'piedras://search/meetings/预算/2026-02-01/2026-02-28/_/10',
+          'piedras://search/meetings/_/_/_/__ungrouped/20',
+          'piedras://search/meetings/复盘/_/_/_/_',
         ],
       });
     }
@@ -374,7 +374,7 @@ export function createMcpServer() {
         const meetings = await listMeetingSummaries(100);
         return {
           resources: meetings.map((meeting) => ({
-            uri: `ai-notepad://meetings/${meeting.id}`,
+            uri: `piedras://meetings/${meeting.id}`,
             name: meeting.title,
             title: meeting.title,
             description: meeting.preview || '会议详情',
