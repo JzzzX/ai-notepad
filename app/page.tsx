@@ -31,7 +31,7 @@ const PANEL_MIN_WIDTH = {
 };
 
 const DIVIDER_COUNT = 2;
-const DIVIDER_WIDTH = 8;
+const DIVIDER_WIDTH = 12;
 const WIDTH_STORAGE_KEY = 'ai-notepad-panel-widths-v1';
 
 type ResizablePanel = 'transcript' | 'notes';
@@ -113,6 +113,7 @@ export default function Home() {
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [showMcpDrawer, setShowMcpDrawer] = useState(false);
   const [mcpBaseUrl, setMcpBaseUrl] = useState('');
+  const [activeDivider, setActiveDivider] = useState<ResizablePanel | null>(null);
   const [isMobileLayout, setIsMobileLayout] = useState(false);
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel>('transcript');
 
@@ -245,6 +246,8 @@ export default function Home() {
 
   const startResize = useCallback(
     (panel: ResizablePanel, startX: number, startWidth: number) => {
+      setActiveDivider(panel);
+
       const onMouseMove = (event: MouseEvent) => {
         const delta = event.clientX - startX;
 
@@ -287,6 +290,7 @@ export default function Home() {
         window.removeEventListener('mouseup', onMouseUp);
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
+        setActiveDivider(null);
       };
 
       document.body.style.cursor = 'col-resize';
@@ -505,10 +509,30 @@ export default function Home() {
 
           <div
             onMouseDown={(e) => handleDividerMouseDown('transcript', e)}
-            className="group relative w-1 shrink-0 cursor-col-resize bg-transparent"
+            className="group relative flex w-3 shrink-0 cursor-col-resize items-center justify-center"
             title="拖动调整实时转写宽度"
+            aria-label="拖动调整实时转写宽度"
           >
-            <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-[#D8CEC4] opacity-0 transition-opacity group-hover:opacity-100" />
+            <div
+              className={`absolute inset-y-4 left-1/2 w-px -translate-x-1/2 rounded-full transition-colors ${
+                activeDivider === 'transcript'
+                  ? 'bg-[#BDA896]'
+                  : 'bg-[#D8CEC4]'
+              }`}
+            />
+            <div
+              className={`relative z-10 flex w-3 items-center justify-center rounded-full border bg-[#FAF6F1]/96 py-2 shadow-sm transition-all ${
+                activeDivider === 'transcript'
+                  ? 'border-[#C7B8A8] shadow-[0_8px_18px_-12px_rgba(74,60,49,0.45)]'
+                  : 'border-[#DDD2C7] opacity-80 group-hover:border-[#CCBCAC] group-hover:opacity-100 group-hover:shadow-[0_8px_18px_-12px_rgba(74,60,49,0.35)]'
+              }`}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
+                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
+                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
+              </div>
+            </div>
           </div>
 
           {/* 中栏 - 笔记编辑器 + AI 笔记 */}
@@ -531,10 +555,30 @@ export default function Home() {
 
           <div
             onMouseDown={(e) => handleDividerMouseDown('notes', e)}
-            className="group relative w-1 shrink-0 cursor-col-resize bg-transparent"
+            className="group relative flex w-3 shrink-0 cursor-col-resize items-center justify-center"
             title="拖动调整笔记区宽度"
+            aria-label="拖动调整笔记区宽度"
           >
-            <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-[#D8CEC4] opacity-0 transition-opacity group-hover:opacity-100" />
+            <div
+              className={`absolute inset-y-4 left-1/2 w-px -translate-x-1/2 rounded-full transition-colors ${
+                activeDivider === 'notes'
+                  ? 'bg-[#BDA896]'
+                  : 'bg-[#D8CEC4]'
+              }`}
+            />
+            <div
+              className={`relative z-10 flex w-3 items-center justify-center rounded-full border bg-[#FAF6F1]/96 py-2 shadow-sm transition-all ${
+                activeDivider === 'notes'
+                  ? 'border-[#C7B8A8] shadow-[0_8px_18px_-12px_rgba(74,60,49,0.45)]'
+                  : 'border-[#DDD2C7] opacity-80 group-hover:border-[#CCBCAC] group-hover:opacity-100 group-hover:shadow-[0_8px_18px_-12px_rgba(74,60,49,0.35)]'
+              }`}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
+                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
+                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
+              </div>
+            </div>
           </div>
 
           {/* 右栏 - Chat */}
