@@ -63,7 +63,7 @@ function validateMcpToken(request: NextRequest): Response | null {
       -32001,
       '缺少 Bearer Token',
       {
-        'WWW-Authenticate': 'Bearer realm="piedras MCP"',
+        'WWW-Authenticate': 'Bearer realm="Piedras MCP"',
       }
     );
   }
@@ -75,7 +75,7 @@ function validateMcpToken(request: NextRequest): Response | null {
       -32003,
       'MCP Token 无效',
       {
-        'WWW-Authenticate': 'Bearer realm="piedras MCP", error="invalid_token"',
+        'WWW-Authenticate': 'Bearer realm="Piedras MCP", error="invalid_token"',
       }
     );
   }

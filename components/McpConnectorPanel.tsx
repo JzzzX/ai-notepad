@@ -94,7 +94,7 @@ export default function McpConnectorPanel({
       JSON.stringify(
         {
           mcpServers: {
-            piedras: {
+            Piedras: {
               url: endpoint,
               headers: {
                 Authorization: 'Bearer <MCP_SERVER_TOKEN>',

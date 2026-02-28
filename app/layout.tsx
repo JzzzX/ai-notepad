@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "piedras - 智能会议记录",
-  description: "piedras 是一个本地优先、中文优先的 AI 会议记录 Demo，支持实时转写、AI 结构化纪要、会议问答与轻量生态接入。",
+  title: "Piedras - 智能会议记录",
+  description: "Piedras 是一个本地优先、中文优先的 AI 会议记录 Demo，支持实时转写、AI 结构化纪要、会议问答与轻量生态接入。",
 };
 
 export default function RootLayout({

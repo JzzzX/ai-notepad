@@ -291,7 +291,7 @@ export function createMcpServer() {
     {
       name: 'piedras-mcp',
       version: '1.0.0',
-      title: 'piedras MCP',
+      title: 'Piedras MCP',
     },
     {
       capabilities: {

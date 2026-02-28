@@ -1260,7 +1260,7 @@ export default function AudioRecorder() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleStart}
-            className="group flex items-center gap-2.5 rounded-full bg-sky-500 px-6 py-2.5 text-[15px] font-semibold text-white shadow-lg shadow-sky-500/20 transition-all hover:bg-sky-400 hover:scale-[1.02] active:scale-[0.98]"
+            className="font-song group flex items-center gap-2.5 rounded-full bg-sky-500 px-6 py-2.5 text-[15px] font-semibold text-white shadow-lg shadow-sky-500/20 transition-all hover:bg-sky-400 hover:scale-[1.02] active:scale-[0.98]"
           >
             <CircleDot size={16} strokeWidth={2.5} />
             开始录音
@@ -1269,7 +1269,7 @@ export default function AudioRecorder() {
           <button
             onClick={() => void handleUploadAudioClick()}
             disabled={isUploadingAudio}
-            className="flex items-center gap-2 rounded-full border border-stone-200/60 bg-white px-4 py-2.5 text-[14px] font-medium text-stone-600 shadow-sm transition-all hover:bg-stone-50 hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-70"
+            className="font-song flex items-center gap-2 rounded-full border border-stone-200/60 bg-white px-4 py-2.5 text-[14px] font-medium text-stone-600 shadow-sm transition-all hover:bg-stone-50 hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isUploadingAudio ? (
               <Loader2 size={16} className="animate-spin text-sky-500" />

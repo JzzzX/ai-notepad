@@ -302,8 +302,8 @@ export default function Home() {
             <PiedrasMark className="h-7 w-7" />
           </div>
           <div>
-            <h1 className="font-song text-lg font-bold lowercase text-[#3F3229] tracking-tight">
-              piedras
+            <h1 className="font-song text-lg font-bold text-[#3F3229] tracking-tight">
+              Piedras
             </h1>
             <p className="text-[11px] text-[#8C7A6B] font-bold uppercase tracking-[0.24em]">
               Spoken Notes, Quietly Held
