@@ -34,7 +34,7 @@ export default function TooltipIconButton({
         {children}
       </button>
       <span
-        className={`pointer-events-none absolute ${tooltipPosition} z-50 whitespace-nowrap rounded-full bg-stone-900 px-3 py-1 text-[11px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100`}
+        className={`pointer-events-none absolute ${tooltipPosition} z-[60] whitespace-nowrap rounded-lg bg-stone-900/95 px-2.5 py-1 text-[10px] font-medium tracking-wide text-white opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.16)] transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100`}
       >
         {label}
       </span>

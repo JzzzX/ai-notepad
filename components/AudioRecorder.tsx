@@ -194,6 +194,7 @@ export default function AudioRecorder() {
   } | null>(null);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -264,6 +265,16 @@ export default function AudioRecorder() {
     autoStopPromptedRef.current = false;
     lastTranscriptAtRef.current = Date.now();
   }, [setCurrentPartial, setAudioLevels]);
+
+  const handleToggleGuide = useCallback(() => {
+    setShowRecorderSettings(false);
+    setShowGuide((value) => !value);
+  }, []);
+
+  const handleToggleRecorderSettings = useCallback(() => {
+    setShowGuide(false);
+    setShowRecorderSettings((value) => !value);
+  }, []);
 
   const loadAsrStatus = useCallback(async (): Promise<AsrStatus> => {
     try {
@@ -1218,8 +1229,22 @@ export default function AudioRecorder() {
     void loadAsrStatus();
   }, [loadAsrStatus]);
 
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setShowGuide(false);
+        setShowRecorderSettings(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+    };
+  }, []);
+
   return (
-    <div className="relative flex items-center gap-3">
+    <div ref={rootRef} className="relative flex items-center gap-3">
       <input
         ref={audioFileInputRef}
         type="file"
@@ -1257,16 +1282,18 @@ export default function AudioRecorder() {
           </button>
 
           <TooltipIconButton
-            onClick={() => setShowGuide(!showGuide)}
+            onClick={handleToggleGuide}
             label="录音说明"
+            tooltipSide="bottom"
             className="rounded-full bg-white border border-stone-200/60 p-2.5 text-stone-400 transition-all hover:bg-stone-50 hover:text-stone-600 hover:shadow-sm"
           >
             <CircleQuestionMark size={16} />
           </TooltipIconButton>
 
           <TooltipIconButton
-            onClick={() => setShowRecorderSettings((value) => !value)}
+            onClick={handleToggleRecorderSettings}
             label="录音设置"
+            tooltipSide="bottom"
             className="rounded-full bg-white border border-stone-200/60 p-2.5 text-stone-400 transition-all hover:bg-stone-50 hover:text-stone-600 hover:shadow-sm"
           >
             <SlidersHorizontal size={16} />
@@ -1326,8 +1353,9 @@ export default function AudioRecorder() {
           </TooltipIconButton>
 
           <TooltipIconButton
-            onClick={() => setShowRecorderSettings((value) => !value)}
+            onClick={handleToggleRecorderSettings}
             label="录音设置"
+            tooltipSide="bottom"
             className="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-stone-200/60 text-stone-500 transition-all hover:bg-stone-50 hover:text-stone-700 active:scale-90 shadow-sm"
           >
             <SlidersHorizontal size={15} />
@@ -1336,11 +1364,11 @@ export default function AudioRecorder() {
       )}
 
       {showRecorderSettings && (
-        <div className="absolute right-0 top-16 z-50 w-80 rounded-3xl border border-stone-200/80 bg-white p-5 shadow-2xl">
+        <div className="absolute right-0 top-full z-50 mt-4 w-[360px] max-w-[calc(100vw-2rem)] rounded-[28px] border border-stone-200/80 bg-white/95 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.16)] backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={16} className="text-stone-400" />
-              <h4 className="text-sm font-semibold text-stone-800">录音设置</h4>
+              <h4 className="text-sm font-serif font-semibold text-stone-800">录音设置</h4>
             </div>
             <button
               onClick={() => setShowRecorderSettings(false)}
@@ -1398,8 +1426,8 @@ export default function AudioRecorder() {
 
       {/* 引导弹窗：更像一张精致的卡片 */}
       {showGuide && (status === 'idle' || status === 'ended') && (
-        <div className="absolute top-20 right-6 z-50 w-80 rounded-3xl border border-gray-100 bg-white p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
-          <h4 className="mb-3 text-base font-bold text-gray-900 flex items-center gap-2">
+        <div className="absolute right-0 top-full z-50 mt-4 w-[380px] max-w-[calc(100vw-2rem)] rounded-[28px] border border-stone-200/80 bg-white/96 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.16)] backdrop-blur-xl animate-in fade-in zoom-in duration-200">
+          <h4 className="mb-3 flex items-center gap-2 text-base font-serif font-semibold text-stone-900">
             <Sparkles size={18} className="text-indigo-500" />
             隐私录制说明
           </h4>
@@ -1410,21 +1438,21 @@ export default function AudioRecorder() {
           )}
           <div className="space-y-3 text-xs text-gray-500 leading-relaxed">
             <div className="rounded-2xl bg-gray-50 p-4 border border-gray-100">
-              <div className="flex items-center gap-3 font-semibold text-gray-700 mb-1">
+              <div className="mb-1 flex items-center gap-3 font-semibold text-gray-700">
                 <Mic size={14} className="text-indigo-500" />
                 1. 采集你的声音
               </div>
               <p className="pl-6 text-[11px] text-gray-400">点击允许麦克风权限</p>
             </div>
             <div className="rounded-2xl bg-gray-50 p-4 border border-gray-100">
-              <div className="flex items-center gap-3 font-semibold text-gray-700 mb-1">
+              <div className="mb-1 flex items-center gap-3 font-semibold text-gray-700">
                 <Monitor size={14} className="text-teal-500" />
                 2. 采集对方的声音
               </div>
               <p className="pl-6 text-[11px] text-gray-400">选择会议标签页并勾选「共享音频」</p>
             </div>
             <div className="rounded-2xl bg-gray-50 p-4 border border-gray-100">
-              <div className="flex items-center gap-3 font-semibold text-gray-700 mb-1">
+              <div className="mb-1 flex items-center gap-3 font-semibold text-gray-700">
                 <HardDriveUpload size={14} className="text-sky-500" />
                 3. 导入已有录音
               </div>
