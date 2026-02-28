@@ -168,7 +168,7 @@ export default function TemplateManager({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4">
-      <div className="flex h-[80vh] w-[min(980px,100%)] flex-col rounded-xl bg-white shadow-2xl">
+      <div className="flex h-[min(84vh,760px)] w-[min(980px,100%)] flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
           <div>
             <h3 className="text-sm font-semibold text-zinc-800">模板管理</h3>
@@ -182,21 +182,21 @@ export default function TemplateManager({
           </button>
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-[260px_1fr]">
-          <div className="border-r border-zinc-200 p-3">
+        <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)]">
+          <div className="flex min-h-0 flex-col border-r border-zinc-200 p-3">
             <button
               onClick={handleCreateNew}
-              className="mb-3 flex w-full items-center justify-center gap-1 rounded-md border border-zinc-200 px-3 py-2 text-xs text-zinc-600 transition-colors hover:border-zinc-300 hover:text-zinc-800"
+              className="mb-3 flex w-full shrink-0 items-center justify-center gap-1 rounded-md border border-zinc-200 px-3 py-2 text-xs text-zinc-600 transition-colors hover:border-zinc-300 hover:text-zinc-800"
             >
               <Plus size={14} />
               新建用户模板
             </button>
 
-            <div className="space-y-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
               {templates.map((template, idx) => (
                 <div
                   key={template.id}
-                  className={`rounded-md border px-2 py-2 ${
+                  className={`rounded-md border px-2 py-2 transition-colors ${
                     template.id === selectedId ? 'border-zinc-400 bg-zinc-50' : 'border-zinc-100'
                   }`}
                 >
@@ -237,79 +237,81 @@ export default function TemplateManager({
             </div>
           </div>
 
-          <div className="min-h-0 overflow-y-auto p-4">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs text-zinc-500">
-                名称
+          <div className="flex min-h-0 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs text-zinc-500">
+                  名称
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                    disabled={isReadOnly || isBusy}
+                    className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
+                  />
+                </label>
+                <label className="text-xs text-zinc-500">
+                  命令
+                  <input
+                    value={form.command}
+                    onChange={(e) => setForm((prev) => ({ ...prev, command: e.target.value }))}
+                    placeholder="/custom"
+                    disabled={isReadOnly || isBusy}
+                    className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
+                  />
+                </label>
+                <label className="text-xs text-zinc-500">
+                  图标
+                  <input
+                    value={form.icon}
+                    onChange={(e) => setForm((prev) => ({ ...prev, icon: e.target.value }))}
+                    disabled={isReadOnly || isBusy}
+                    className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
+                  />
+                </label>
+                <label className="text-xs text-zinc-500">
+                  分类
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                    disabled={isReadOnly || isBusy}
+                    className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
+                  >
+                    {TEMPLATE_CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <label className="mt-3 block text-xs text-zinc-500">
+                描述
                 <input
-                  value={form.name}
-                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                  value={form.description}
+                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                   disabled={isReadOnly || isBusy}
                   className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
                 />
               </label>
-              <label className="text-xs text-zinc-500">
-                命令
-                <input
-                  value={form.command}
-                  onChange={(e) => setForm((prev) => ({ ...prev, command: e.target.value }))}
-                  placeholder="/custom"
+
+              <label className="mt-3 block text-xs text-zinc-500">
+                Prompt
+                <textarea
+                  value={form.prompt}
+                  onChange={(e) => setForm((prev) => ({ ...prev, prompt: e.target.value }))}
                   disabled={isReadOnly || isBusy}
-                  className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
+                  className="mt-1 min-h-[320px] w-full resize-y rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
                 />
               </label>
-              <label className="text-xs text-zinc-500">
-                图标
-                <input
-                  value={form.icon}
-                  onChange={(e) => setForm((prev) => ({ ...prev, icon: e.target.value }))}
-                  disabled={isReadOnly || isBusy}
-                  className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
-                />
-              </label>
-              <label className="text-xs text-zinc-500">
-                分类
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                  disabled={isReadOnly || isBusy}
-                  className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
-                >
-                  {TEMPLATE_CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </label>
+
+              {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+              {isReadOnly && (
+                <p className="mt-2 text-xs text-zinc-400">系统模板只读，如需改造请“新建用户模板”。</p>
+              )}
             </div>
 
-            <label className="mt-3 block text-xs text-zinc-500">
-              描述
-              <input
-                value={form.description}
-                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                disabled={isReadOnly || isBusy}
-                className="mt-1 w-full rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
-              />
-            </label>
-
-            <label className="mt-3 block text-xs text-zinc-500">
-              Prompt
-              <textarea
-                value={form.prompt}
-                onChange={(e) => setForm((prev) => ({ ...prev, prompt: e.target.value }))}
-                disabled={isReadOnly || isBusy}
-                className="mt-1 h-56 w-full resize-y rounded-md border border-zinc-200 px-2 py-1.5 text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none disabled:bg-zinc-50"
-              />
-            </label>
-
-            {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
-            {isReadOnly && (
-              <p className="mt-2 text-xs text-zinc-400">系统模板只读，如需改造请“新建用户模板”。</p>
-            )}
-
-            <div className="mt-4 flex items-center justify-end gap-2">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-zinc-200 px-4 py-3">
               {selectedTemplate && !selectedTemplate.isSystem && (
                 <button
                   onClick={handleDelete}
