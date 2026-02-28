@@ -255,20 +255,20 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen flex-col bg-[#F9F8F6]">
+    <div className="flex h-screen flex-col bg-[#FBF9F6]">
       {/* 顶栏 */}
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-[#F9F8F6]/80 backdrop-blur-md px-4 py-6 md:px-8">
+      <header className="sticky top-0 z-30 flex items-center justify-between bg-[#FBF9F6]/80 backdrop-blur-md px-4 py-5 md:px-8">
         <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-sky-500 shadow-sm border border-sky-100/50">
-            <Mic size={20} className="text-sky-500" strokeWidth={2.5} />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500 text-white shadow-lg shadow-sky-500/20">
+            <Mic size={18} strokeWidth={2.5} />
           </div>
           <div>
-            <h1 className="text-xl font-serif font-semibold text-stone-800 tracking-tight">AI Notepad</h1>
-            <p className="text-[13px] text-stone-400 font-medium">智能会议笔记助手</p>
+            <h1 className="text-lg font-serif font-bold text-[#1A1917] tracking-tight">AI Notepad</h1>
+            <p className="text-[11px] text-[#A8A29E] font-bold uppercase tracking-widest">Intelligent Assistant</p>
           </div>
           <button
             onClick={() => setShowHistoryDrawer(true)}
-            className="ml-4 flex items-center gap-1.5 rounded-xl border border-stone-200/60 px-3 py-2 text-[13px] font-serif font-medium text-stone-500 transition-all hover:bg-white hover:border-stone-300 hover:text-stone-700 hover:shadow-sm"
+            className="ml-4 flex items-center gap-1.5 rounded-xl border border-stone-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-stone-600 transition-all hover:bg-stone-50 hover:border-stone-300 hover:shadow-sm"
             title="打开会议记录"
           >
             <History size={14} />
@@ -280,8 +280,8 @@ export default function Home() {
           <input
             value={meetingTitle}
             onChange={(e) => setMeetingTitle(e.target.value)}
-            placeholder="无标题文档..."
-            className="w-36 rounded-xl border-transparent bg-transparent px-3 py-2 text-xl font-serif font-medium text-stone-800 placeholder:text-stone-300 transition-all hover:bg-white/50 focus:bg-white focus:shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-100 sm:w-52 md:w-72"
+            placeholder="无标题文档"
+            className="w-36 rounded-xl border-transparent bg-transparent px-3 py-1.5 text-lg font-serif font-semibold text-stone-900 placeholder:text-stone-300 transition-all hover:bg-stone-100/50 focus:bg-white focus:shadow-sm focus:outline-none focus:ring-2 focus:ring-stone-200 sm:w-52 md:w-64 text-center"
           />
 
           <AudioRecorder />
@@ -291,24 +291,23 @@ export default function Home() {
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-2 rounded-xl border border-stone-200/60 px-4 py-2 text-[13px] font-medium text-stone-500 transition-all hover:bg-white hover:border-stone-300 hover:text-stone-700 hover:shadow-sm disabled:opacity-50 disabled:hover:bg-transparent"
-              title="保存会议"
+              className="flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2 text-[13px] font-medium text-stone-600 transition-all hover:bg-stone-50 hover:border-stone-300 hover:shadow-sm disabled:opacity-50"
             >
               {isSaving ? (
                 <Save size={14} className="animate-pulse text-sky-500" />
               ) : (
-                <Check size={14} className="text-stone-400" />
+                <Check size={14} className="text-emerald-500" />
               )}
-              {isSaving ? '保存中...' : '保存'}
+              {isSaving ? '保存中' : '保存'}
             </button>
           )}
 
           {status === 'ended' && (
             <button
               onClick={handleNewMeeting}
-              className="flex items-center gap-2 rounded-xl border border-stone-200/60 px-4 py-2 text-[13px] font-medium text-stone-500 transition-all hover:bg-white hover:border-stone-300 hover:text-stone-700 hover:shadow-sm"
+              className="flex items-center gap-2 rounded-xl bg-[#1A1917] px-4 py-2 text-[13px] font-semibold text-white transition-all hover:bg-black hover:shadow-lg hover:shadow-black/10"
             >
-              <RotateCcw size={14} className="text-stone-400" />
+              <RotateCcw size={14} />
               新会议
             </button>
           )}
@@ -405,24 +404,25 @@ export default function Home() {
 
       {/* 底栏状态 */}
       <footer className="flex items-center justify-between bg-transparent px-8 py-4">
-        <div className="flex items-center gap-4 text-xs font-medium text-stone-400">
-          <span>
-            {status === 'idle' && '准备就绪 — Botless 双通道采集'}
-            {status === 'recording' && '正在录音 — 无 Bot 进入会议 · 每30s自动保存'}
-            {status === 'ended' && '录音已结束 — 已自动保存'}
+        <div className="flex items-center gap-4 text-[11px] font-bold uppercase tracking-widest text-[#A8A29E]">
+          <span className="flex items-center gap-2">
+            <span className={`h-1.5 w-1.5 rounded-full ${status === 'recording' ? 'bg-sky-500 animate-pulse' : 'bg-stone-300'}`} />
+            {status === 'idle' && 'READY — BOTLESS DUAL CHANNEL'}
+            {status === 'recording' && 'RECORDING — AUTO SAVING EVERY 30S'}
+            {status === 'ended' && 'SESSION ENDED — AUTO SAVED'}
           </span>
           {segments.length > 0 && (
-            <span className="flex items-center gap-1.5 before:block before:w-1 before:h-1 before:rounded-full before:bg-stone-300">{segments.length} 条转写</span>
+            <span className="flex items-center gap-1.5 before:block before:w-1 before:h-1 before:rounded-full before:bg-stone-300">{segments.length} TRANSCRIPTS</span>
           )}
           {isSaving && (
-            <span className="flex items-center gap-1.5 text-sky-500 before:block before:w-1 before:h-1 before:rounded-full before:bg-stone-300">
+            <span className="flex items-center gap-1.5 text-sky-500">
               <Save size={12} className="animate-pulse" />
-              保存中...
+              SAVING...
             </span>
           )}
         </div>
-        <div className="text-[11px] font-medium text-stone-300 tracking-wide uppercase">
-          Botless · 本地 SQLite 存储
+        <div className="text-[10px] font-bold text-stone-300 tracking-[0.2em] uppercase">
+          Botless · SQLite
         </div>
       </footer>
     </div>

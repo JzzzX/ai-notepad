@@ -312,22 +312,22 @@ export default function TranscriptPanel() {
               ref={(node) => {
                 segmentRefs.current[segment.id] = node;
               }}
-              className={`group relative rounded-2xl border bg-white px-5 py-4 shadow-sm transition-all ${
-                isSystemPlaceholder ? 'opacity-60' : ''
+              className={`group relative rounded-2xl border transition-all duration-300 ${
+                isSystemPlaceholder ? 'opacity-50 grayscale' : ''
               } ${
                 isActiveMatch
-                  ? 'border-sky-200 ring-2 ring-sky-100'
+                  ? 'border-sky-300 bg-sky-50/30 ring-4 ring-sky-500/5'
                   : isMatched
-                    ? 'border-amber-200 bg-amber-50/30'
-                    : 'border-black/[0.04]'
-              }`}
+                    ? 'border-amber-200 bg-amber-50/50'
+                    : 'border-stone-200/60 bg-white hover:border-stone-300 hover:shadow-md'
+              } px-5 py-4`}
             >
               <div className="absolute right-3 top-3 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                 <button
                   onClick={() =>
                     handleCopySegment(segment.speaker, segment.text, segment.id)
                   }
-                  className="rounded-lg border border-black/[0.05] bg-white p-2 text-stone-400 transition-colors hover:bg-stone-50 hover:text-stone-700"
+                  className="rounded-lg border border-stone-200 bg-white p-2 text-stone-400 transition-all hover:bg-stone-50 hover:text-stone-800"
                   title="复制该段"
                 >
                   {copiedSegmentId === segment.id ? (
@@ -338,29 +338,28 @@ export default function TranscriptPanel() {
                 </button>
                 <button
                   onClick={() => handleDeleteSegment(segment.id)}
-                  className="rounded-lg border border-black/[0.05] bg-white p-2 text-stone-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                  className="rounded-lg border border-stone-200 bg-white p-2 text-stone-400 transition-all hover:bg-red-50 hover:text-red-500"
                   title="删除该段"
                 >
                   <Trash2 size={14} />
                 </button>
               </div>
 
-              <div className="mb-2.5 flex items-center gap-2 pr-20">
-                <span className="inline-flex items-center gap-1.5 rounded-md bg-[#F9F8F6] px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                  <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-                  <Icon size={10} />
-                  {style.label || getSpeakerDisplayName(segment.speaker)}
+              <div className="mb-3 flex items-center gap-3 pr-20">
+                <span className="inline-flex items-center gap-2 rounded-lg bg-stone-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500 border border-stone-200/50">
+                  <span className={`h-1.5 w-1.5 rounded-full ${style.dot} shadow-sm`} />
+                  {getSpeakerDisplayName(segment.speaker)}
                 </span>
                 <span
                   title={new Date(segment.startTime).toLocaleString('zh-CN')}
-                  className="cursor-default text-[11px] font-medium text-stone-400"
+                  className="cursor-default font-mono text-[10px] font-bold tracking-tighter text-stone-300"
                 >
                   {formatRelativeTime(segment.startTime - baseTime)}
                 </span>
               </div>
               <p
-                className={`text-[15px] leading-relaxed text-stone-800 ${
-                  isSystemPlaceholder ? 'italic text-stone-500' : ''
+                className={`text-[15px] leading-relaxed text-[#2D2C2A] selection:bg-sky-100 ${
+                  isSystemPlaceholder ? 'italic text-stone-400' : ''
                 }`}
               >
                 {highlightText(segment.text, searchQuery)}
