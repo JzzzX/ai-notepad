@@ -331,6 +331,7 @@ export default function ChatPanel() {
             <TooltipIconButton
               onClick={() => setShowTemplateManager(true)}
               label="模板管理"
+              tooltipSide="bottom"
               className="rounded-xl p-2 text-stone-400 transition-colors hover:bg-[#F9F8F6] hover:text-stone-600"
             >
               <LayoutTemplate size={16} />
@@ -339,6 +340,7 @@ export default function ChatPanel() {
             <TooltipIconButton
               onClick={() => setShowGlobalFilters((v) => !v)}
               label="筛选条件"
+              tooltipSide="bottom"
               className={`rounded-xl p-2 transition-colors ${
                 showGlobalFilters
                   ? 'bg-[#F9F8F6] text-stone-700'
@@ -351,24 +353,24 @@ export default function ChatPanel() {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-6 overflow-y-auto px-6 py-6 pb-28">
+      <div ref={scrollRef} className="flex-1 space-y-6 overflow-y-auto px-7 py-8 pb-32">
         {activeMessages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-stone-400">
-            <div className="w-full max-w-[280px] rounded-2xl border border-dashed border-stone-200 bg-white/50 p-8 flex flex-col items-center justify-center">
-              <div className="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center mb-4 shadow-sm border border-sky-100/50">
+          <div className="flex min-h-full flex-col items-center justify-center px-2 text-stone-400">
+            <div className="w-full max-w-[360px] rounded-[28px] border border-dashed border-stone-200/90 bg-[#FCFBF8] px-8 py-10 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
+              <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-[20px] bg-sky-50 shadow-sm border border-sky-100/50 mx-auto">
                 <Bot size={20} className="text-sky-400" strokeWidth={2} />
               </div>
-              <p className="text-[15px] font-serif font-semibold text-stone-700 mb-1">
+              <p className="mb-2 text-center text-[17px] font-serif font-semibold text-stone-700">
                 {chatMode === 'meeting' ? '会议专属助手' : '全局知识库'}
               </p>
-              <p className="text-center text-[13px] leading-relaxed text-stone-400 mb-6">
+              <p className="mx-auto mb-7 max-w-[240px] text-center text-[13px] leading-6 text-stone-400">
                 {chatMode === 'meeting'
                   ? hasMeetingContent
                     ? '随时提问，或使用 / 调用专业模版'
                     : '保持安静，准备聆听...'
                   : '提问以获取跨会议的历史知识引用'}
               </p>
-              <div className="flex flex-col gap-2 w-full">
+              <div className="flex flex-col gap-3">
                 {suggestions.map((q) => (
                   <button
                     key={q}
@@ -376,7 +378,7 @@ export default function ChatPanel() {
                       handleInputChange(q);
                       inputRef.current?.focus();
                     }}
-                    className="rounded-xl bg-[#F9F8F6] px-4 py-2.5 text-[13px] text-stone-500 transition-all hover:bg-white hover:text-stone-700 hover:shadow-sm text-left border border-transparent hover:border-black/[0.04]"
+                    className="rounded-2xl bg-white/80 px-5 py-3 text-[13px] leading-6 text-stone-500 transition-all hover:bg-white hover:text-stone-700 hover:shadow-sm text-left border border-stone-200/60 hover:border-black/[0.04]"
                   >
                     {q}
                   </button>
