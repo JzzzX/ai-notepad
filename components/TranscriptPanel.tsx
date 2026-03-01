@@ -200,7 +200,7 @@ export default function TranscriptPanel() {
           </div>
           <p className="font-song mb-1 text-[15px] font-semibold text-[#5C4D42]">准备聆听...</p>
           <p className="text-center text-[13px] leading-relaxed text-[#A69B8F]">
-            保持安静，或点击顶部按钮开始记录
+            从这一刻开始，把声音整理成清晰记录。
           </p>
         </div>
       </div>

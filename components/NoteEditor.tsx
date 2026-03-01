@@ -32,7 +32,7 @@ export default function NoteEditor() {
           </div>
           <p className="font-song text-[15px] font-semibold text-[#5C4D42] mb-1">灵感与笔记</p>
           <p className="text-center text-[13px] leading-relaxed text-[#A69B8F]">
-            一个纯净的书写空间。<br/>开始录音后，你的要点会与转写自动融合。
+            记录判断、补充背景，让思路与转写自然汇合。
           </p>
         </div>
       </div>

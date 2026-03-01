@@ -389,7 +389,7 @@ export default function ChatPanel() {
   const suggestions =
     chatMode === 'global'
       ? ['最近一周有哪些关键决策？', '标题包含复盘的会议达成了什么共识？', '跨会议重复出现的风险点有哪些？']
-      : ['会议的核心决策是什么？', '提取所有行动项'];
+      : [];
 
   return (
     <div className="relative flex h-full flex-col bg-transparent">
@@ -479,24 +479,26 @@ export default function ChatPanel() {
               <p className="mx-auto mb-7 max-w-[240px] text-center text-[13px] leading-6 text-stone-400">
                 {chatMode === 'meeting'
                   ? hasMeetingContent
-                    ? '随时提问，或使用 / 调用专业模版'
-                    : '保持安静，准备聆听...'
+                    ? '围绕当前会议提问，提炼决策、行动项与结论。'
+                    : '开录后即可围绕当前会议提问，快速提炼重点。'
                   : '提问以获取跨会议的历史知识引用'}
               </p>
-              <div className="flex flex-col gap-3">
-                {suggestions.map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => {
-                      handleInputChange(q);
-                      inputRef.current?.focus();
-                    }}
-                    className="rounded-2xl bg-white/80 px-5 py-3 text-[13px] leading-6 text-stone-500 transition-all hover:bg-white hover:text-stone-700 hover:shadow-sm text-left border border-stone-200/60 hover:border-black/[0.04]"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
+              {suggestions.length > 0 && (
+                <div className="flex flex-col gap-3">
+                  {suggestions.map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => {
+                        handleInputChange(q);
+                        inputRef.current?.focus();
+                      }}
+                      className="rounded-2xl bg-white/80 px-5 py-3 text-left text-[13px] leading-6 text-stone-500 transition-all hover:border-black/[0.04] hover:bg-white hover:text-stone-700 hover:shadow-sm border border-stone-200/60"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
