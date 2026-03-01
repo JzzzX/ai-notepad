@@ -389,7 +389,7 @@ export default function ChatPanel() {
   const suggestions =
     chatMode === 'global'
       ? ['最近一周有哪些关键决策？', '标题包含复盘的会议达成了什么共识？', '跨会议重复出现的风险点有哪些？']
-      : ['会议的核心决策是什么？', '提取所有行动项', '总结关键讨论点'];
+      : ['会议的核心决策是什么？', '提取所有行动项'];
 
   return (
     <div className="relative flex h-full flex-col bg-transparent">
