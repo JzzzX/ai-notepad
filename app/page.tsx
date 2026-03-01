@@ -590,25 +590,27 @@ export default function Home() {
 
       {/* 底栏状态 */}
       <footer className="hidden items-center justify-between bg-transparent px-8 py-4 lg:flex">
-        <div className="flex items-center gap-4 text-[11px] font-bold uppercase tracking-widest text-[#A69B8F]">
+        <div className="flex items-center gap-4 text-[11px] font-medium text-[#A69B8F]">
           <span className="flex items-center gap-2">
             <span className={`h-1.5 w-1.5 rounded-full ${status === 'recording' ? 'bg-sky-500 animate-pulse' : 'bg-[#C4B6A9]'}`} />
-            {status === 'idle' && 'READY — DUAL CHANNEL CAPTURE'}
-            {status === 'recording' && 'RECORDING — AUTO SAVE ACTIVE'}
-            {status === 'ended' && 'SESSION ENDED — SAVED'}
+            {status === 'idle' && '准备开始记录'}
+            {status === 'recording' && '正在聆听，内容持续保存'}
+            {status === 'ended' && '记录已结束，内容已保存'}
           </span>
           {segments.length > 0 && (
-            <span className="flex items-center gap-1.5 before:block before:w-1 before:h-1 before:rounded-full before:bg-[#C4B6A9]">{segments.length} TRANSCRIPTS</span>
+            <span className="flex items-center gap-1.5 before:block before:h-1 before:w-1 before:rounded-full before:bg-[#C4B6A9]">
+              {segments.length} 段转写
+            </span>
           )}
           {isSaving && (
             <span className="flex items-center gap-1.5 text-sky-500">
               <Save size={12} className="animate-pulse" />
-              SAVING...
+              正在保存
             </span>
           )}
         </div>
-        <div className="text-[10px] font-bold text-[#C4B6A9] tracking-[0.2em] uppercase">
-          Vercel · Postgres
+        <div className="text-[10px] font-medium tracking-[0.08em] text-[#C4B6A9]">
+          Piedras · 智能会议记录
         </div>
       </footer>
     </div>
