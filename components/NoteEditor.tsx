@@ -49,7 +49,7 @@ export default function NoteEditor() {
 
   return (
     <div className="flex h-full flex-col bg-transparent">
-      <div className="border-b border-[#E3D9CE] px-4 py-4 sm:px-6 sm:py-5">
+      <div className="border-b border-black/[0.04] px-4 py-4 sm:px-6 sm:py-5">
         <h3 className="font-song flex items-center text-[15px] font-semibold text-stone-800">
           <FileText size={16} className="mr-2 text-sky-400" />
           灵感与笔记
@@ -57,7 +57,7 @@ export default function NoteEditor() {
       </div>
       {/* 极简工具栏悬浮 */}
       {editor && (
-        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-[#E3D9CE] bg-[#FCFAF8]/90 px-6 py-4 backdrop-blur-md">
+        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-black/[0.04] bg-[#FCFAF8]/90 px-6 py-4 backdrop-blur-md">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
             active={editor.isActive('heading', { level: 2 })}

@@ -217,9 +217,9 @@ export default function TranscriptPanel() {
 
   return (
     <div className="flex h-full flex-col bg-transparent">
-      <div className="border-b border-[#E3D9CE] px-6 py-5">
-        <div className="flex items-center justify-between gap-4">
-          <h3 className="font-song flex items-center text-[15px] font-semibold text-[#4A3C31]">
+      <div className="border-b border-black/[0.04] px-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-song flex items-center text-[15px] font-semibold text-stone-800">
             <MessageSquare size={16} className="mr-2 text-sky-400" />
             实时转写
           </h3>
