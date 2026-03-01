@@ -386,11 +386,6 @@ export default function ChatPanel() {
   const hasMeetingContent = segments.length > 0 || status !== 'idle';
   const canAsk = chatMode === 'global' ? true : hasMeetingContent;
 
-  const suggestions =
-    chatMode === 'global'
-      ? ['最近一周有哪些关键决策？', '标题包含复盘的会议达成了什么共识？', '跨会议重复出现的风险点有哪些？']
-      : [];
-
   return (
     <div className="relative flex h-full flex-col bg-transparent">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.04] px-4 py-4 sm:px-6 sm:py-5">
@@ -481,24 +476,8 @@ export default function ChatPanel() {
                   ? hasMeetingContent
                     ? '围绕当前会议提问，提炼决策、行动项与结论。'
                     : '开录后即可围绕当前会议提问，快速提炼重点。'
-                  : '提问以获取跨会议的历史知识引用'}
+                  : '跨会议提问，快速召回相关结论与线索。'}
               </p>
-              {suggestions.length > 0 && (
-                <div className="flex flex-col gap-3">
-                  {suggestions.map((q) => (
-                    <button
-                      key={q}
-                      onClick={() => {
-                        handleInputChange(q);
-                        inputRef.current?.focus();
-                      }}
-                      className="rounded-2xl bg-white/80 px-5 py-3 text-left text-[13px] leading-6 text-stone-500 transition-all hover:border-black/[0.04] hover:bg-white hover:text-stone-700 hover:shadow-sm border border-stone-200/60"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         )}
