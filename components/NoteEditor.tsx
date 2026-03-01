@@ -25,15 +25,23 @@ export default function NoteEditor() {
 
   if (status === 'idle') {
     return (
-      <div className="flex h-full flex-col items-center justify-center p-6 text-[#A69B8F] bg-transparent">
-        <div className="w-full max-w-[280px] rounded-2xl border border-dashed border-[#D8CEC4] bg-[#F7F3EE]/50 p-8 flex flex-col items-center justify-center">
-          <div className="w-12 h-12 rounded-2xl bg-sky-50 flex items-center justify-center mb-4 shadow-sm border border-sky-100/50">
-            <FileText size={20} className="text-sky-400" strokeWidth={2} />
+      <div className="flex h-full flex-col bg-transparent">
+        <div className="border-b border-black/[0.04] px-4 py-4 sm:px-6 sm:py-5">
+          <h3 className="font-song flex items-center text-[15px] font-semibold text-stone-800">
+            <FileText size={16} className="mr-2 text-sky-400" />
+            灵感与笔记
+          </h3>
+        </div>
+        <div className="flex flex-1 items-center justify-center p-6 text-[#A69B8F]">
+          <div className="flex w-full max-w-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#D8CEC4] bg-[#F7F3EE]/50 p-8">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-100/50 bg-sky-50 shadow-sm">
+              <FileText size={20} className="text-sky-400" strokeWidth={2} />
+            </div>
+            <p className="font-song mb-1 text-[15px] font-semibold text-[#5C4D42]">灵感与笔记</p>
+            <p className="text-center text-[13px] leading-relaxed text-[#A69B8F]">
+              记录判断、补充背景，让思路与转写自然汇合。
+            </p>
           </div>
-          <p className="font-song text-[15px] font-semibold text-[#5C4D42] mb-1">灵感与笔记</p>
-          <p className="text-center text-[13px] leading-relaxed text-[#A69B8F]">
-            记录判断、补充背景，让思路与转写自然汇合。
-          </p>
         </div>
       </div>
     );
@@ -41,9 +49,15 @@ export default function NoteEditor() {
 
   return (
     <div className="flex h-full flex-col bg-transparent">
+      <div className="border-b border-[#E3D9CE] px-4 py-4 sm:px-6 sm:py-5">
+        <h3 className="font-song flex items-center text-[15px] font-semibold text-stone-800">
+          <FileText size={16} className="mr-2 text-sky-400" />
+          灵感与笔记
+        </h3>
+      </div>
       {/* 极简工具栏悬浮 */}
       {editor && (
-        <div className="sticky top-0 z-10 flex items-center gap-1 bg-[#FCFAF8]/90 backdrop-blur-md px-6 py-4 border-b border-[#E3D9CE]">
+        <div className="sticky top-0 z-10 flex items-center gap-1 border-b border-[#E3D9CE] bg-[#FCFAF8]/90 px-6 py-4 backdrop-blur-md">
           <ToolbarButton
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
             active={editor.isActive('heading', { level: 2 })}

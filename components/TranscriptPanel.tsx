@@ -193,15 +193,23 @@ export default function TranscriptPanel() {
 
   if (status === 'idle') {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-transparent p-6 text-[#A69B8F]">
-        <div className="flex w-full max-w-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#D8CEC4] bg-[#F7F3EE]/50 p-8">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-100/50 bg-sky-50 shadow-sm">
-            <MessageSquare size={20} className="text-sky-400" strokeWidth={2} />
+      <div className="flex h-full flex-col bg-transparent">
+        <div className="border-b border-black/[0.04] px-4 py-4 sm:px-6 sm:py-5">
+          <h3 className="font-song flex items-center text-[15px] font-semibold text-stone-800">
+            <MessageSquare size={16} className="mr-2 text-sky-400" />
+            实时转写
+          </h3>
+        </div>
+        <div className="flex flex-1 items-center justify-center p-6 text-[#A69B8F]">
+          <div className="flex w-full max-w-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#D8CEC4] bg-[#F7F3EE]/50 p-8">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-100/50 bg-sky-50 shadow-sm">
+              <MessageSquare size={20} className="text-sky-400" strokeWidth={2} />
+            </div>
+            <p className="font-song mb-1 text-[15px] font-semibold text-[#5C4D42]">准备聆听...</p>
+            <p className="text-center text-[13px] leading-relaxed text-[#A69B8F]">
+              从这一刻开始，把声音整理成清晰记录。
+            </p>
           </div>
-          <p className="font-song mb-1 text-[15px] font-semibold text-[#5C4D42]">准备聆听...</p>
-          <p className="text-center text-[13px] leading-relaxed text-[#A69B8F]">
-            从这一刻开始，把声音整理成清晰记录。
-          </p>
         </div>
       </div>
     );
@@ -211,7 +219,10 @@ export default function TranscriptPanel() {
     <div className="flex h-full flex-col bg-transparent">
       <div className="border-b border-[#E3D9CE] px-6 py-5">
         <div className="flex items-center justify-between gap-4">
-          <h3 className="font-song text-[15px] font-semibold text-[#4A3C31]">实时转写</h3>
+          <h3 className="font-song flex items-center text-[15px] font-semibold text-[#4A3C31]">
+            <MessageSquare size={16} className="mr-2 text-sky-400" />
+            实时转写
+          </h3>
           <div className="flex items-center gap-3">
             {status === 'recording' && (
               <div className="flex items-center gap-2">
