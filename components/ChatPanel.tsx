@@ -526,8 +526,8 @@ export default function ChatPanel() {
       </div>
 
       {chatMode === 'global' && showGlobalFilters && (
-        <div className="border-t border-stone-200/80 bg-[#F7F4EF] px-4 py-3 sm:px-6">
-          <div className="space-y-3 rounded-2xl border border-stone-200/80 bg-white/75 p-3 shadow-sm">
+        <div className="relative z-20 border-t border-stone-200/80 bg-[#F7F4EF]/70 px-4 py-3 backdrop-blur-xl sm:px-6">
+          <div className="space-y-3 rounded-2xl border border-stone-200/80 bg-white/80 p-3 shadow-[0_18px_40px_-20px_rgba(15,23,42,0.35)] backdrop-blur-md">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-medium tracking-wide text-stone-500">全局检索筛选</p>
               <div className="flex items-center gap-2">
@@ -535,7 +535,7 @@ export default function ChatPanel() {
                   <button
                     type="button"
                     onClick={handleResetGlobalFilters}
-                    className="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[11px] text-stone-500 transition-colors hover:text-stone-700"
+                    className="inline-flex items-center gap-1 rounded-full border border-stone-200/90 bg-white/85 px-2.5 py-1 text-[11px] text-stone-500 transition-colors hover:text-stone-700"
                   >
                     <RotateCcw size={12} />
                     清空
@@ -544,7 +544,7 @@ export default function ChatPanel() {
                 <button
                   type="button"
                   onClick={() => setShowGlobalFilters(false)}
-                  className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[11px] text-stone-500 transition-colors hover:text-stone-700"
+                  className="rounded-full border border-stone-200/90 bg-white/85 px-2.5 py-1 text-[11px] text-stone-500 transition-colors hover:text-stone-700"
                 >
                   收起
                 </button>
