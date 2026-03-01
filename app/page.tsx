@@ -593,9 +593,9 @@ export default function Home() {
         <div className="flex items-center gap-4 text-[11px] font-bold uppercase tracking-widest text-[#A69B8F]">
           <span className="flex items-center gap-2">
             <span className={`h-1.5 w-1.5 rounded-full ${status === 'recording' ? 'bg-sky-500 animate-pulse' : 'bg-[#C4B6A9]'}`} />
-            {status === 'idle' && 'READY — BOTLESS DUAL CHANNEL'}
-            {status === 'recording' && 'RECORDING — AUTO SAVING EVERY 30S'}
-            {status === 'ended' && 'SESSION ENDED — AUTO SAVED'}
+            {status === 'idle' && 'READY — DUAL CHANNEL CAPTURE'}
+            {status === 'recording' && 'RECORDING — AUTO SAVE ACTIVE'}
+            {status === 'ended' && 'SESSION ENDED — SAVED'}
           </span>
           {segments.length > 0 && (
             <span className="flex items-center gap-1.5 before:block before:w-1 before:h-1 before:rounded-full before:bg-[#C4B6A9]">{segments.length} TRANSCRIPTS</span>
@@ -608,7 +608,7 @@ export default function Home() {
           )}
         </div>
         <div className="text-[10px] font-bold text-[#C4B6A9] tracking-[0.2em] uppercase">
-          Botless · SQLite
+          Vercel · Postgres
         </div>
       </footer>
     </div>
