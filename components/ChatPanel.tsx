@@ -459,9 +459,16 @@ export default function ChatPanel() {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-6 overflow-y-auto px-4 py-5 pb-36 sm:px-7 sm:py-8 sm:pb-32">
+      <div
+        ref={scrollRef}
+        className={`flex-1 px-4 py-5 sm:px-7 sm:py-8 ${
+          activeMessages.length === 0
+            ? 'overflow-hidden pb-24 sm:pb-28'
+            : 'space-y-6 overflow-y-auto pb-36 sm:pb-32'
+        }`}
+      >
         {activeMessages.length === 0 && (
-          <div className="flex min-h-full flex-col items-center justify-center px-2 text-stone-400">
+          <div className="flex h-full flex-col items-center justify-start px-2 pt-6 text-stone-400 sm:pt-10">
             <div className="w-full max-w-[360px] rounded-[28px] border border-dashed border-stone-200/90 bg-[#FCFBF8] px-5 py-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:px-8 sm:py-10">
               <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-[20px] border border-sky-100/50 bg-sky-50 shadow-sm">
                 <Bot size={20} className="text-sky-400" strokeWidth={2} />
