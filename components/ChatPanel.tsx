@@ -13,6 +13,8 @@ import {
   LayoutTemplate,
   Mic,
   RotateCcw,
+  Settings2,
+  X,
 } from 'lucide-react';
 import { useMeetingStore } from '@/lib/store';
 import { chatAcrossMeetings, chatWithMeeting } from '@/lib/llm';
@@ -21,10 +23,16 @@ import { v4 as uuidv4 } from 'uuid';
 import type { ChatMessage, Template } from '@/lib/types';
 import TemplateManager from './TemplateManager';
 import TooltipIconButton from './TooltipIconButton';
+import PromptSettings from './PromptSettings';
+import SpeakerManager from './SpeakerManager';
 
 type ChatMode = 'meeting' | 'global';
 
-export default function ChatPanel() {
+interface ChatPanelProps {
+  onClose?: () => void;
+}
+
+export default function ChatPanel({ onClose }: ChatPanelProps = {}) {
   const {
     segments,
     userNotes,
@@ -52,6 +60,7 @@ export default function ChatPanel() {
   const [templateFilter, setTemplateFilter] = useState('');
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [showAISettings, setShowAISettings] = useState(false);
 
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
   const [globalTitleFilter, setGlobalTitleFilter] = useState('');
@@ -422,14 +431,24 @@ export default function ChatPanel() {
           </div>
 
           {chatMode === 'meeting' ? (
-            <TooltipIconButton
-              onClick={() => setShowTemplateManager(true)}
-              label="模板管理"
-              tooltipSide="bottom"
-              className="rounded-xl p-2 text-stone-400 transition-colors hover:bg-[#F9F8F6] hover:text-stone-600"
-            >
-              <LayoutTemplate size={16} />
-            </TooltipIconButton>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <TooltipIconButton
+                onClick={() => setShowAISettings(true)}
+                label="AI 设置"
+                tooltipSide="bottom"
+                className="rounded-xl p-2 text-stone-400 transition-colors hover:bg-[#F9F8F6] hover:text-stone-600"
+              >
+                <Settings2 size={16} />
+              </TooltipIconButton>
+              <TooltipIconButton
+                onClick={() => setShowTemplateManager(true)}
+                label="模板管理"
+                tooltipSide="bottom"
+                className="rounded-xl p-2 text-stone-400 transition-colors hover:bg-[#F9F8F6] hover:text-stone-600"
+              >
+                <LayoutTemplate size={16} />
+              </TooltipIconButton>
+            </div>
           ) : (
             <TooltipIconButton
               onClick={() => setShowGlobalFilters((v) => !v)}
@@ -450,6 +469,19 @@ export default function ChatPanel() {
                 </span>
               )}
             </TooltipIconButton>
+          )}
+
+          {onClose && (
+            <div className="w-px h-4 bg-black/[0.04] ml-1 mr-1" />
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="rounded-xl p-2 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600"
+              title="关闭"
+            >
+              <X size={18} />
+            </button>
           )}
         </div>
       </div>
@@ -692,6 +724,26 @@ export default function ChatPanel() {
         onClose={() => setShowTemplateManager(false)}
         onSaved={loadTemplates}
       />
+
+      {showAISettings && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+           <div className="w-full max-w-[500px] rounded-3xl bg-white shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+             <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
+                <h3 className="font-semibold text-base text-stone-800 flex items-center gap-2">
+                  <Settings2 size={18} className="text-stone-400" />
+                  AI 输出设置
+                </h3>
+                <button onClick={() => setShowAISettings(false)} className="p-2 rounded-full hover:bg-stone-50 text-stone-400 transition-colors">
+                  <X size={18} />
+                </button>
+             </div>
+             <div className="p-6 overflow-y-auto max-h-[70vh] space-y-6 custom-scrollbar">
+               <PromptSettings />
+               <SpeakerManager />
+             </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 }

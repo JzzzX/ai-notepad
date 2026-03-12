@@ -198,8 +198,8 @@ export default function TemplateManager({
           </button>
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[280px_minmax(0,1fr)]">
-          <div className="flex min-h-0 max-h-[35vh] flex-col border-b border-zinc-200/60 bg-zinc-50/30 p-3 lg:max-h-none lg:border-b-0 lg:border-r">
+        <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[280px_minmax(0,1fr)]">
+          <div className="flex min-h-0 max-h-[35vh] flex-col border-b border-zinc-200/60 bg-zinc-50/30 p-3 md:max-h-none md:border-b-0 md:border-r">
             <button
               onClick={handleCreateNew}
               className="mb-3 flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl border border-dashed border-zinc-300 bg-white/50 px-3 py-2.5 text-[13px] font-medium text-zinc-600 shadow-sm transition-colors hover:border-zinc-400 hover:text-zinc-800 active:bg-zinc-100"

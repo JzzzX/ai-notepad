@@ -1245,7 +1245,7 @@ export default function AudioRecorder() {
   }, []);
 
   return (
-    <div ref={rootRef} className="relative flex w-full flex-wrap items-center gap-3 sm:w-auto">
+    <div ref={rootRef} className="relative flex items-center gap-1">
       <input
         ref={audioFileInputRef}
         type="file"
@@ -1257,216 +1257,49 @@ export default function AudioRecorder() {
       />
 
       {status === 'idle' || status === 'ended' ? (
-        <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+        <>
           <button
             onClick={handleStart}
-            className="font-song group flex min-w-[140px] flex-1 items-center justify-center gap-2.5 rounded-full bg-sky-500 px-6 py-2.5 text-[15px] font-semibold text-white shadow-lg shadow-sky-500/20 transition-all hover:scale-[1.02] hover:bg-sky-400 active:scale-[0.98] sm:min-w-0 sm:flex-none"
+            title="开始录音"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2B2420] text-white shadow-md transition-transform hover:scale-105 hover:bg-black"
           >
-            <CircleDot size={16} strokeWidth={2.5} />
-            开始录音
+            <Mic size={18} />
           </button>
 
           <button
             onClick={() => void handleUploadAudioClick()}
             disabled={isUploadingAudio}
-            className="font-song flex min-w-[140px] flex-1 items-center justify-center gap-2 rounded-full border border-stone-200/60 bg-white px-4 py-2.5 text-[14px] font-medium text-stone-600 shadow-sm transition-all hover:bg-stone-50 hover:text-stone-800 disabled:cursor-not-allowed disabled:opacity-70 sm:min-w-0 sm:flex-none"
+            title="上传音频"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-gray-100/80 hover:text-gray-900 disabled:opacity-50"
           >
             {isUploadingAudio ? (
-              <Loader2 size={16} className="animate-spin text-sky-500" />
+              <Loader2 size={18} className="animate-spin text-sky-500" />
             ) : (
-              <FileAudio size={16} className="text-stone-500" />
+              <FileAudio size={18} strokeWidth={2} />
             )}
-            {isUploadingAudio ? `转写中 ${Math.round(uploadProgress * 100)}%` : '上传音频'}
           </button>
-
-          <TooltipIconButton
-            onClick={handleToggleGuide}
-            label="录音说明"
-            tooltipSide="bottom"
-            className="rounded-full bg-white border border-stone-200/60 p-2.5 text-stone-400 transition-all hover:bg-stone-50 hover:text-stone-600 hover:shadow-sm"
-          >
-            <CircleQuestionMark size={16} />
-          </TooltipIconButton>
-
-          <TooltipIconButton
-            onClick={handleToggleRecorderSettings}
-            label="录音设置"
-            tooltipSide="bottom"
-            className="rounded-full bg-white border border-stone-200/60 p-2.5 text-stone-400 transition-all hover:bg-stone-50 hover:text-stone-600 hover:shadow-sm"
-          >
-            <SlidersHorizontal size={16} />
-          </TooltipIconButton>
-
-          {isUploadingAudio && uploadFileName ? (
-            <span className="w-full truncate rounded-full border border-stone-200/60 bg-white px-3 py-1 text-[11px] font-medium text-stone-500 shadow-sm sm:max-w-[220px] sm:w-auto">
-              {uploadFileName}
-            </span>
-          ) : null}
-        </div>
+        </>
       ) : (
         <>
-          {/* 正在录音：高级感呼吸药囊 */}
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 rounded-[28px] border border-sky-100 bg-white px-4 py-2 shadow-sm shadow-sky-500/5 sm:flex-none sm:rounded-full sm:px-5">
-            <div className="flex items-center gap-2.5">
-              <div className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-sky-500"></span>
-              </div>
-              <span className="font-mono text-sm font-semibold text-stone-700 tracking-wide">
-                {formatDuration(duration)}
-              </span>
-              {isUploadingAudio ? (
-                <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-600">
-                  文件转写中
-                </span>
-              ) : null}
-            </div>
-
-            {/* 双通道音量指示：更紧凑 */}
-            <div className="flex min-w-0 flex-wrap items-center gap-4 border-l border-stone-100 pl-4">
-              <div className="flex items-center gap-2" title="我">
-                <Mic size={14} className={micActive ? 'text-sky-500' : 'text-stone-300'} />
-                <LevelBar level={micLevel} color="bg-sky-400" />
-              </div>
-              <div className="flex items-center gap-2" title="对方">
-                <Volume2
-                  size={14}
-                  className={systemAudioActive ? 'text-teal-500' : 'text-stone-300'}
-                />
-                {hasSystemAudio ? (
-                  <LevelBar level={systemLevel} color="bg-teal-400" />
-                ) : (
-                  <span className="text-[10px] text-stone-300 font-medium">无采集</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <TooltipIconButton
-            onClick={handleStop}
-            label={isUploadingAudio ? '取消转写' : '停止录音'}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-stone-200/60 text-stone-500 transition-all hover:bg-red-50 hover:text-red-500 hover:border-red-100 active:scale-90 shadow-sm"
-          >
-            <Square size={14} fill="currentColor" />
-          </TooltipIconButton>
-
-          <TooltipIconButton
-            onClick={handleToggleRecorderSettings}
-            label="录音设置"
-            tooltipSide="bottom"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white border border-stone-200/60 text-stone-500 transition-all hover:bg-stone-50 hover:text-stone-700 active:scale-90 shadow-sm"
-          >
-            <SlidersHorizontal size={15} />
-          </TooltipIconButton>
-        </>
-      )}
-
-      {showRecorderSettings && (
-        <div className="fixed left-4 right-4 top-24 z-50 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-3xl border border-stone-200/60 bg-white p-5 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.15)] animate-in fade-in slide-in-from-top-2 duration-200 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-4 sm:max-h-none sm:w-[360px] sm:max-w-[calc(100vw-2rem)] sm:overflow-visible">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <SlidersHorizontal size={16} className="text-stone-400" />
-              <h4 className="font-song text-sm font-semibold text-stone-800">录音设置</h4>
-            </div>
-            <button
-              onClick={() => setShowRecorderSettings(false)}
-              className="rounded-md p-1 text-stone-400 transition-colors hover:bg-stone-50 hover:text-stone-600"
-              title="关闭"
-            >
-              <X size={14} />
-            </button>
-          </div>
-
-          <div className="mt-4 space-y-4">
-            <label className="flex items-start gap-3 rounded-2xl border border-stone-100 bg-stone-50/60 p-4">
-              <input
-                type="checkbox"
-                checked={recordingOptions.autoStopEnabled}
-                onChange={(event) =>
-                  setRecordingOptions({ autoStopEnabled: event.target.checked })
-                }
-                className="mt-0.5 h-4 w-4 rounded border-stone-300"
-              />
-              <div>
-                <p className="text-sm font-medium text-stone-700">自动结束检测</p>
-                <p className="mt-1 text-xs leading-relaxed text-stone-400">
-                  连续一段时间没有新的转写内容时，提示你是否停止录音。
-                </p>
-              </div>
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs text-stone-500">静默超时时长</span>
-              <select
-                value={recordingOptions.autoStopMinutes}
-                disabled={!recordingOptions.autoStopEnabled}
-                onChange={(event) =>
-                  setRecordingOptions({
-                    autoStopMinutes: Number(event.target.value),
-                  })
-                }
-                className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 focus:border-stone-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-400"
-              >
-                {AUTO_STOP_MINUTE_OPTIONS.map((minutes) => (
-                  <option key={minutes} value={minutes}>
-                    {minutes} 分钟
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <p className="text-xs leading-relaxed text-stone-400">
-              系统音频中断提示始终生效；关闭的仅是“长时间无新转写”检测。
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* 引导弹窗：更像一张精致的卡片 */}
-      {showGuide && (status === 'idle' || status === 'ended') && (
-        <div className="fixed left-4 right-4 top-24 z-50 max-h-[calc(100vh-7rem)] overflow-y-auto rounded-3xl border border-stone-200/60 bg-white p-6 shadow-[0_16px_40px_-12px_rgba(0,0,0,0.15)] animate-in fade-in slide-in-from-top-2 duration-200 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-4 sm:max-h-none sm:w-[380px] sm:max-w-[calc(100vw-2rem)] sm:overflow-visible">
-          <h4 className="font-song mb-3 flex items-center gap-2 text-base font-semibold text-stone-900">
-            <Sparkles size={18} className="text-indigo-500" />
-            隐私录制说明
-          </h4>
-          {asrStatus && (
-            <p className="mb-4 rounded-xl bg-indigo-50/50 px-3 py-2 text-[11px] text-indigo-600 leading-normal">
-              {asrStatus.message}
-            </p>
-          )}
-          <div className="space-y-3 text-xs text-gray-500 leading-relaxed">
-            <div className="rounded-2xl bg-gray-50 p-4 border border-gray-100">
-              <div className="mb-1 flex items-center gap-3 font-semibold text-gray-700">
-                <Mic size={14} className="text-indigo-500" />
-                1. 采集你的声音
-              </div>
-              <p className="pl-6 text-[11px] text-gray-400">点击允许麦克风权限</p>
-            </div>
-            <div className="rounded-2xl bg-gray-50 p-4 border border-gray-100">
-              <div className="mb-1 flex items-center gap-3 font-semibold text-gray-700">
-                <Monitor size={14} className="text-teal-500" />
-                2. 采集对方的声音
-              </div>
-              <p className="pl-6 text-[11px] text-gray-400">选择会议标签页并勾选「共享音频」</p>
-            </div>
-            <div className="rounded-2xl bg-gray-50 p-4 border border-gray-100">
-              <div className="mb-1 flex items-center gap-3 font-semibold text-gray-700">
-                <FileAudio size={14} className="text-sky-500" />
-                3. 导入已有录音
-              </div>
-              <p className="pl-6 text-[11px] text-gray-400">支持上传音频文件并直接转写</p>
-            </div>
-            <p className="text-center italic text-gray-400 py-1">
-              像使用笔记本一样简单，没有任何 Bot 会干扰会议
-            </p>
-          </div>
           <button
-            onClick={() => setShowGuide(false)}
-            className="mt-4 w-full rounded-xl bg-gray-900 py-2.5 text-sm font-semibold text-white hover:bg-black transition-colors"
+            onClick={handleStop}
+            title={isUploadingAudio ? '取消转写' : '停止录音'}
+            className="group relative flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-white shadow-md transition-transform hover:scale-105"
           >
-            准备好了
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+            <Square size={14} fill="currentColor" className="relative z-10" />
           </button>
-        </div>
+
+          <div className="flex items-center gap-2 pl-2 pr-1">
+            <div className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-sky-500"></span>
+            </div>
+            <span className="font-mono text-[13px] font-semibold text-stone-700 tracking-wide">
+              {formatDuration(duration)}
+            </span>
+          </div>
+        </>
       )}
 
       {autoStopPrompt && (

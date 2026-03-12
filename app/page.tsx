@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import {
   RotateCcw,
   Save,
@@ -10,87 +10,19 @@ import {
   PenLine,
   Blocks,
   ScrollText,
+  SlidersHorizontal,
 } from 'lucide-react';
-import AudioRecorder from '@/components/AudioRecorder';
-import TranscriptPanel from '@/components/TranscriptPanel';
 import NoteEditor from '@/components/NoteEditor';
-import ChatPanel from '@/components/ChatPanel';
+import FloatingBottomBar from '@/components/FloatingBottomBar';
+import FloatingTranscript from '@/components/FloatingTranscript';
+import FloatingChat from '@/components/FloatingChat';
 import EnhancedNotes from '@/components/EnhancedNotes';
-import SpeakerManager from '@/components/SpeakerManager';
 import MeetingHistory from '@/components/MeetingHistory';
-import PromptSettings from '@/components/PromptSettings';
 import McpConnectorPanel from '@/components/McpConnectorPanel';
+import RecorderSettingsPanel from '@/components/RecorderSettingsPanel';
 import PiedrasMark from '@/components/PiedrasMark';
 import { useMeetingStore } from '@/lib/store';
 import { generateMeetingTitle } from '@/lib/llm';
-
-const PANEL_MIN_WIDTH = {
-  transcript: 280,
-  notes: 320,
-  chat: 320,
-};
-
-const DIVIDER_COUNT = 2;
-const DIVIDER_WIDTH = 12;
-const WIDTH_STORAGE_KEY = 'ai-notepad-panel-widths-v1';
-
-type ResizablePanel = 'transcript' | 'notes';
-
-interface PanelWidths {
-  transcript: number;
-  notes: number;
-}
-
-type MobilePanel = 'transcript' | 'notes' | 'chat';
-
-const DEFAULT_PANEL_WIDTHS: PanelWidths = {
-  transcript: 420,
-  notes: 420,
-};
-
-function normalizePanelWidths(widths: PanelWidths, mainWidth: number): PanelWidths {
-  if (mainWidth <= 0) return widths;
-
-  const panelAreaWidth = mainWidth - DIVIDER_COUNT * DIVIDER_WIDTH;
-  let transcript = Math.max(widths.transcript, PANEL_MIN_WIDTH.transcript);
-  let notes = Math.max(widths.notes, PANEL_MIN_WIDTH.notes);
-
-  const maxFixed = panelAreaWidth - PANEL_MIN_WIDTH.chat;
-  if (maxFixed <= 0) {
-    return {
-      transcript: PANEL_MIN_WIDTH.transcript,
-      notes: PANEL_MIN_WIDTH.notes,
-    };
-  }
-
-  let fixedTotal = transcript + notes;
-  if (fixedTotal <= maxFixed) {
-    return { transcript, notes };
-  }
-
-  let excess = fixedTotal - maxFixed;
-
-  const reduce = (value: number, min: number) => {
-    const canReduce = Math.max(value - min, 0);
-    const amount = Math.min(canReduce, excess);
-    excess -= amount;
-    return value - amount;
-  };
-
-  notes = reduce(notes, PANEL_MIN_WIDTH.notes);
-  transcript = reduce(transcript, PANEL_MIN_WIDTH.transcript);
-  fixedTotal = transcript + notes;
-  if (fixedTotal > maxFixed) {
-    // 极端窄屏下，至少保证不会出现负宽度
-    const fallback = Math.max(maxFixed / 2, 120);
-    return {
-      transcript: Math.max(Math.floor(fallback), 120),
-      notes: Math.max(Math.floor(fallback), 120),
-    };
-  }
-
-  return { transcript, notes };
-}
 
 export default function Home() {
   const {
@@ -106,41 +38,14 @@ export default function Home() {
 
   const prevStatusRef = useRef(status);
   const autoSaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const mainRef = useRef<HTMLElement | null>(null);
-  const [mainWidth, setMainWidth] = useState(0);
-  const [panelWidths, setPanelWidths] = useState<PanelWidths>(DEFAULT_PANEL_WIDTHS);
-  const [widthsHydrated, setWidthsHydrated] = useState(false);
+
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [showMcpDrawer, setShowMcpDrawer] = useState(false);
   const [mcpBaseUrl, setMcpBaseUrl] = useState('');
-  const [activeDivider, setActiveDivider] = useState<ResizablePanel | null>(null);
-  const [isMobileLayout, setIsMobileLayout] = useState(false);
-  const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel>('transcript');
-
-  // 首次挂载后再读取 localStorage，避免 SSR 与客户端首帧不一致导致 hydration 警告
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(WIDTH_STORAGE_KEY);
-      if (!raw) {
-        setWidthsHydrated(true);
-        return;
-      }
-      const parsed = JSON.parse(raw) as Partial<PanelWidths>;
-      if (
-        typeof parsed.transcript === 'number' &&
-        typeof parsed.notes === 'number'
-      ) {
-        setPanelWidths({
-          transcript: parsed.transcript,
-          notes: parsed.notes,
-        });
-      }
-    } catch {
-      // 忽略损坏的 localStorage 数据
-    } finally {
-      setWidthsHydrated(true);
-    }
-  }, []);
+  
+  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [showRecorderSettings, setShowRecorderSettings] = useState(false);
 
   const maybeGenerateAutoTitle = useCallback(async () => {
     const state = useMeetingStore.getState();
@@ -163,7 +68,6 @@ export default function Home() {
     }
   }, []);
 
-  // 录音结束时自动生成标题并保存
   useEffect(() => {
     if (prevStatusRef.current === 'recording' && status === 'ended') {
       void (async () => {
@@ -175,7 +79,6 @@ export default function Home() {
     prevStatusRef.current = status;
   }, [status, saveMeeting, loadMeetingList, maybeGenerateAutoTitle]);
 
-  // 录音中每 30 秒自动保存
   useEffect(() => {
     if (status === 'recording') {
       autoSaveTimerRef.current = setInterval(() => {
@@ -194,15 +97,12 @@ export default function Home() {
     };
   }, [status, saveMeeting]);
 
-  // 手动保存
   const handleSave = useCallback(async () => {
     await saveMeeting();
     await loadMeetingList();
   }, [saveMeeting, loadMeetingList]);
 
-  // 新会议
   const handleNewMeeting = useCallback(async () => {
-    // 先保存当前会议（如果有内容）
     const state = useMeetingStore.getState();
     if (state.segments.length > 0 || state.userNotes || state.enhancedNotes) {
       await saveMeeting();
@@ -213,193 +113,103 @@ export default function Home() {
 
   const hasContent = segments.length > 0;
 
-  // 保存面板宽度
-  useEffect(() => {
-    if (!widthsHydrated) return;
-    window.localStorage.setItem(WIDTH_STORAGE_KEY, JSON.stringify(panelWidths));
-  }, [panelWidths, widthsHydrated]);
-
-  // 监听主区域宽度变化
-  useEffect(() => {
-    if (!mainRef.current) return;
-    const element = mainRef.current;
-    const observer = new ResizeObserver(([entry]) => {
-      setMainWidth(entry.contentRect.width);
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 1023px)');
-    const updateLayout = () => setIsMobileLayout(mediaQuery.matches);
-
-    updateLayout();
-    mediaQuery.addEventListener('change', updateLayout);
-    return () => mediaQuery.removeEventListener('change', updateLayout);
-  }, []);
-
-  const effectivePanelWidths = useMemo(
-    () => normalizePanelWidths(panelWidths, mainWidth),
-    [panelWidths, mainWidth]
-  );
-
-  const startResize = useCallback(
-    (panel: ResizablePanel, startX: number, startWidth: number) => {
-      setActiveDivider(panel);
-
-      const onMouseMove = (event: MouseEvent) => {
-        const delta = event.clientX - startX;
-
-        setPanelWidths((prev) => {
-          const panelAreaWidth = mainWidth - DIVIDER_COUNT * DIVIDER_WIDTH;
-          const transcript = prev.transcript;
-          const notes = prev.notes;
-
-          if (panelAreaWidth <= 0) return prev;
-
-          if (panel === 'transcript') {
-            const max =
-              panelAreaWidth -
-              notes -
-              PANEL_MIN_WIDTH.chat;
-            const nextTranscript = Math.min(
-              Math.max(startWidth + delta, PANEL_MIN_WIDTH.transcript),
-              Math.max(max, PANEL_MIN_WIDTH.transcript)
-            );
-            return normalizePanelWidths(
-              { ...prev, transcript: nextTranscript },
-              mainWidth
-            );
-          }
-
-          const max =
-            panelAreaWidth -
-            transcript -
-            PANEL_MIN_WIDTH.chat;
-          const nextNotes = Math.min(
-            Math.max(startWidth + delta, PANEL_MIN_WIDTH.notes),
-            Math.max(max, PANEL_MIN_WIDTH.notes)
-          );
-          return normalizePanelWidths({ ...prev, notes: nextNotes }, mainWidth);
-        });
-      };
-
-      const onMouseUp = () => {
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        setActiveDivider(null);
-      };
-
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-    },
-    [mainWidth]
-  );
-
-  const handleDividerMouseDown = (
-    panel: ResizablePanel,
-    event: React.MouseEvent<HTMLDivElement>
-  ) => {
-    event.preventDefault();
-    const startWidth = effectivePanelWidths[panel];
-    startResize(panel, event.clientX, startWidth);
-  };
-
   return (
-    <div className="flex h-screen flex-col bg-[#EFE9E2]">
-      {/* 顶栏 */}
-      <header className="sticky top-0 z-30 border-b border-[#D8CEC4]/50 bg-[#EFE9E2]/80 px-3 py-4 backdrop-blur-md sm:px-4 md:px-8 md:py-5">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2B2420] text-[#F5EEE6] shadow-lg shadow-[#2B2420]/20">
-              <PiedrasMark className="h-7 w-7" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="font-song text-lg font-bold text-[#3F3229] tracking-tight">
-                Piedras
-              </h1>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8C7A6B] sm:text-[11px] sm:tracking-[0.24em]">
-                Spoken Notes, Quietly Held
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <button
-                onClick={() => {
-                  setShowMcpDrawer(false);
-                  setShowHistoryDrawer(true);
-                }}
-                className="font-song flex items-center gap-1.5 rounded-xl border border-[#D8CEC4] bg-[#F7F3EE] px-3 py-1.5 text-[12px] font-semibold text-[#5C4D42] transition-all hover:border-[#C4B6A9] hover:bg-[#EFE9E2] hover:shadow-sm sm:px-3.5 sm:text-[13px]"
-                title="打开会议记录"
-              >
-                <ScrollText size={14} />
-                会议记录
-              </button>
-              <button
-                onClick={() => {
-                  setShowHistoryDrawer(false);
-                  setMcpBaseUrl(window.location.origin);
-                  setShowMcpDrawer(true);
-                }}
-                className="font-song flex items-center gap-1.5 rounded-xl border border-[#D8CEC4] bg-[#F7F3EE] px-3 py-1.5 text-[12px] font-semibold text-[#5C4D42] transition-all hover:border-[#C4B6A9] hover:bg-[#EFE9E2] hover:shadow-sm sm:px-3.5 sm:text-[13px]"
-                title="查看生态接入说明"
-              >
-                <Blocks size={14} />
-                生态接入
-              </button>
-            </div>
+    <div className="relative flex h-screen flex-col bg-[#F9F9F8]">
+      <header className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#2B2420] text-[#F5EEE6] shadow-sm">
+            <PiedrasMark className="h-5 w-5" />
+          </div>
+          <div className="group relative flex min-w-0 items-center rounded-xl transition-all hover:bg-[#F0EBE6] hover:ring-1 hover:ring-[#D8CEC4] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#D8CEC4] focus-within:shadow-sm">
+            <span className="pl-3 text-[#A69B8F] transition-colors group-focus-within:text-[#8C7A6B]">
+              <PenLine size={14} />
+            </span>
+            <input
+              value={meetingTitle}
+              onChange={(e) => setMeetingTitle(e.target.value)}
+              placeholder="无标题文档"
+              className="font-song w-48 bg-transparent py-1.5 pl-2 pr-3 text-base font-semibold text-[#3A2E25] placeholder:text-[#A69B8F] focus:outline-none sm:w-64"
+            />
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex gap-2">
+            <button
+              onClick={() => {
+                setShowMcpDrawer(false);
+                setShowHistoryDrawer(true);
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-[#D8CEC4] bg-white px-3 py-1.5 text-xs font-semibold text-[#5C4D42] transition-all hover:bg-[#F7F3EE] hover:shadow-sm"
+            >
+              <ScrollText size={14} />
+              会议记录
+            </button>
+            <button
+              onClick={() => {
+                setShowHistoryDrawer(false);
+                setMcpBaseUrl(window.location.origin);
+                setShowMcpDrawer(true);
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-[#D8CEC4] bg-white px-3 py-1.5 text-xs font-semibold text-[#5C4D42] transition-all hover:bg-[#F7F3EE] hover:shadow-sm"
+            >
+              <Blocks size={14} />
+              生态接入
+            </button>
           </div>
 
-          <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4 xl:justify-end">
-            <div className="group relative flex min-w-0 flex-1 items-center rounded-xl transition-all hover:bg-[#F7F3EE] hover:ring-1 hover:ring-[#D8CEC4] focus-within:bg-[#FCFAF8] focus-within:ring-2 focus-within:ring-[#D8CEC4] focus-within:shadow-sm xl:max-w-[320px]">
-              <span className="pl-3 text-[#A69B8F] transition-colors group-focus-within:text-[#8C7A6B]">
-                <PenLine size={15} />
-              </span>
-              <input
-                value={meetingTitle}
-                onChange={(e) => setMeetingTitle(e.target.value)}
-                placeholder="无标题文档"
-                className="font-song w-full min-w-0 bg-transparent py-1.5 pl-2 pr-3 text-base font-semibold text-[#3A2E25] placeholder:text-[#A69B8F] focus:outline-none sm:w-48 md:w-56 xl:w-full"
-                title="编辑文档标题"
-              />
-            </div>
-
-            <AudioRecorder />
-
-            {/* 保存按钮 */}
-            {hasContent && status !== 'recording' && (
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex items-center gap-2 rounded-xl border border-[#D8CEC4] bg-[#F7F3EE] px-4 py-2 text-[13px] font-medium text-[#5C4D42] transition-all hover:bg-[#EFE9E2] hover:border-[#C4B6A9] hover:shadow-sm disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <Save size={14} className="animate-pulse text-sky-500" />
-                ) : (
-                  <Check size={14} className="text-[#6D8A67]" />
-                )}
-                {isSaving ? '保存中' : '保存'}
-              </button>
-            )}
-
-            {status === 'ended' && (
-              <button
-                onClick={handleNewMeeting}
-                className="flex items-center gap-2 rounded-xl bg-[#4A3C31] px-4 py-2 text-[13px] font-semibold text-[#F7F3EE] transition-all hover:bg-[#3A2E25] hover:shadow-lg hover:shadow-[#4A3C31]/20"
-              >
-                <RotateCcw size={14} />
-                新会议
-              </button>
-            )}
-          </div>
+          {hasContent && status !== 'recording' && (
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 rounded-lg border border-[#D8CEC4] bg-white px-3 py-1.5 text-xs font-medium text-[#5C4D42] transition-all hover:bg-[#F7F3EE] disabled:opacity-50"
+            >
+              {isSaving ? (
+                <Save size={14} className="animate-pulse text-sky-500" />
+              ) : (
+                <Check size={14} className="text-[#6D8A67]" />
+              )}
+              {isSaving ? '保存中' : '已保存'}
+            </button>
+          )}
+          
+          {status === 'ended' && (
+            <button
+              onClick={handleNewMeeting}
+              className="flex items-center gap-1.5 rounded-lg bg-[#4A3C31] px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-[#3A2E25]"
+            >
+              <RotateCcw size={14} />
+              新会议
+            </button>
+          )}
+          
+          <button
+            onClick={() => setShowRecorderSettings(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#D8CEC4] bg-white text-[#5C4D42] transition-all hover:bg-[#F7F3EE] hover:shadow-sm"
+            title="录音与系统设置"
+          >
+            <SlidersHorizontal size={14} />
+          </button>
         </div>
       </header>
 
-      {/* 会议记录抽屉 */}
+      <main className="flex-1 overflow-y-auto pb-32 custom-scrollbar">
+        <div className="mx-auto flex min-h-full max-w-4xl flex-col bg-white px-6 py-8 shadow-sm ring-1 ring-gray-100 sm:my-6 sm:rounded-3xl sm:px-12 sm:py-10">
+          <NoteEditor />
+          
+          {(status === 'ended' || segments.length > 0) && (
+            <div className="mt-8 space-y-6 border-t border-gray-100 pt-8">
+              <EnhancedNotes />
+            </div>
+          )}
+        </div>
+      </main>
+
+      <RecorderSettingsPanel
+        open={showRecorderSettings}
+        onClose={() => setShowRecorderSettings(false)}
+      />
+
       <div
         className={`fixed inset-0 z-40 transition-opacity ${
           showHistoryDrawer ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
@@ -408,7 +218,6 @@ export default function Home() {
         <button
           className="absolute inset-0 bg-[#3A2E25]/20 backdrop-blur-sm"
           onClick={() => setShowHistoryDrawer(false)}
-          aria-label="关闭会议记录抽屉"
         />
         <aside
           className={`absolute left-0 top-0 h-full w-full max-w-[88vw] border-r border-[#D8CEC4] bg-[#F7F3EE] shadow-2xl transition-transform sm:w-80 ${
@@ -422,8 +231,7 @@ export default function Home() {
             </div>
             <button
               onClick={() => setShowHistoryDrawer(false)}
-              className="rounded-md p-1 text-[#8C7A6B] transition-colors hover:bg-[#EFE9E2] hover:text-[#4A3C31]"
-              title="关闭"
+              className="rounded-md p-1 text-[#8C7A6B] hover:bg-[#EFE9E2]"
             >
               <X size={14} />
             </button>
@@ -440,179 +248,22 @@ export default function Home() {
         onClose={() => setShowMcpDrawer(false)}
       />
 
-      {/* 主体 */}
-      {isMobileLayout ? (
-        <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent px-3 pb-3 pt-3 sm:px-4">
-          <div className="mb-3 grid grid-cols-3 gap-2 rounded-2xl border border-[#D8CEC4] bg-[#F7F3EE] p-1">
-            {([
-              ['transcript', '转写'],
-              ['notes', '笔记'],
-              ['chat', 'AI'],
-            ] as Array<[MobilePanel, string]>).map(([panel, label]) => (
-              <button
-                key={panel}
-                type="button"
-                onClick={() => setActiveMobilePanel(panel)}
-                className={`rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-                  activeMobilePanel === panel
-                    ? 'bg-white text-[#4A3C31] shadow-sm'
-                    : 'text-[#8C7A6B]'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+      <FloatingTranscript 
+        isOpen={isTranscriptOpen} 
+        onClose={() => setIsTranscriptOpen(false)} 
+      />
+      
+      <FloatingChat
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+      />
 
-          <div className="min-h-0 flex-1">
-            {activeMobilePanel === 'transcript' && (
-              <div className="flex h-full min-h-0 flex-col rounded-3xl border border-[#E3D9CE] bg-[#FCFAF8] shadow-[0_8px_24px_-12px_rgba(74,60,49,0.08)]">
-                <TranscriptPanel />
-              </div>
-            )}
-
-            {activeMobilePanel === 'notes' && (
-              <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-[#E3D9CE] bg-[#FCFAF8] shadow-[0_8px_24px_-12px_rgba(74,60,49,0.08)]">
-                <div className="flex-1 overflow-y-auto">
-                  <NoteEditor />
-                </div>
-
-                {(status === 'ended' || segments.length > 0) && (
-                  <div className="max-h-[45%] space-y-4 overflow-y-auto border-t border-[#E3D9CE] bg-[#F7F3EE]/50 p-4">
-                    <PromptSettings />
-                    <SpeakerManager />
-                    <EnhancedNotes />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeMobilePanel === 'chat' && (
-              <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-[#E3D9CE] bg-[#FCFAF8] shadow-[0_8px_24px_-12px_rgba(74,60,49,0.08)]">
-                <ChatPanel />
-              </div>
-            )}
-          </div>
-        </main>
-      ) : (
-        <main
-          ref={mainRef}
-          className="flex flex-1 gap-6 overflow-hidden bg-transparent px-4 pb-6 pt-5 md:px-6 xl:px-8 xl:pb-8 xl:pt-6"
-        >
-          {/* 左栏 - 实时转写 */}
-          <div
-            style={{ width: effectivePanelWidths.transcript }}
-            className="flex shrink-0 flex-col rounded-3xl border border-[#E3D9CE] bg-[#FCFAF8] shadow-[0_8px_24px_-12px_rgba(74,60,49,0.08)] transition-shadow duration-500 hover:shadow-[0_12px_32px_-12px_rgba(74,60,49,0.12)]"
-          >
-            <TranscriptPanel />
-          </div>
-
-          <div
-            onMouseDown={(e) => handleDividerMouseDown('transcript', e)}
-            className="group relative flex w-3 shrink-0 cursor-col-resize items-center justify-center"
-            title="拖动调整实时转写宽度"
-            aria-label="拖动调整实时转写宽度"
-          >
-            <div
-              className={`absolute inset-y-4 left-1/2 w-px -translate-x-1/2 rounded-full transition-colors ${
-                activeDivider === 'transcript'
-                  ? 'bg-[#BDA896]'
-                  : 'bg-[#D8CEC4]'
-              }`}
-            />
-            <div
-              className={`relative z-10 flex w-3 items-center justify-center rounded-full border bg-[#FAF6F1]/96 py-2 shadow-sm transition-all ${
-                activeDivider === 'transcript'
-                  ? 'border-[#C7B8A8] shadow-[0_8px_18px_-12px_rgba(74,60,49,0.45)]'
-                  : 'border-[#DDD2C7] opacity-80 group-hover:border-[#CCBCAC] group-hover:opacity-100 group-hover:shadow-[0_8px_18px_-12px_rgba(74,60,49,0.35)]'
-              }`}
-            >
-              <div className="flex flex-col items-center gap-1">
-                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
-                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
-                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
-              </div>
-            </div>
-          </div>
-
-          {/* 中栏 - 笔记编辑器 + AI 笔记 */}
-          <div
-            style={{ width: effectivePanelWidths.notes }}
-            className="flex shrink-0 flex-col overflow-hidden rounded-3xl border border-[#E3D9CE] bg-[#FCFAF8] shadow-[0_8px_24px_-12px_rgba(74,60,49,0.08)] transition-shadow duration-500 hover:shadow-[0_12px_32px_-12px_rgba(74,60,49,0.12)]"
-          >
-            <div className="flex-1 overflow-y-auto">
-              <NoteEditor />
-            </div>
-
-            {(status === 'ended' || segments.length > 0) && (
-              <div className="max-h-[50%] space-y-4 overflow-y-auto border-t border-[#E3D9CE] bg-[#F7F3EE]/50 p-6">
-                <PromptSettings />
-                <SpeakerManager />
-                <EnhancedNotes />
-              </div>
-            )}
-          </div>
-
-          <div
-            onMouseDown={(e) => handleDividerMouseDown('notes', e)}
-            className="group relative flex w-3 shrink-0 cursor-col-resize items-center justify-center"
-            title="拖动调整笔记区宽度"
-            aria-label="拖动调整笔记区宽度"
-          >
-            <div
-              className={`absolute inset-y-4 left-1/2 w-px -translate-x-1/2 rounded-full transition-colors ${
-                activeDivider === 'notes'
-                  ? 'bg-[#BDA896]'
-                  : 'bg-[#D8CEC4]'
-              }`}
-            />
-            <div
-              className={`relative z-10 flex w-3 items-center justify-center rounded-full border bg-[#FAF6F1]/96 py-2 shadow-sm transition-all ${
-                activeDivider === 'notes'
-                  ? 'border-[#C7B8A8] shadow-[0_8px_18px_-12px_rgba(74,60,49,0.45)]'
-                  : 'border-[#DDD2C7] opacity-80 group-hover:border-[#CCBCAC] group-hover:opacity-100 group-hover:shadow-[0_8px_18px_-12px_rgba(74,60,49,0.35)]'
-              }`}
-            >
-              <div className="flex flex-col items-center gap-1">
-                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
-                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
-                <span className="h-1 w-1 rounded-full bg-[#BDA896]" />
-              </div>
-            </div>
-          </div>
-
-          {/* 右栏 - Chat */}
-          <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-[#E3D9CE] bg-[#FCFAF8] shadow-[0_8px_24px_-12px_rgba(74,60,49,0.08)] transition-shadow duration-500 hover:shadow-[0_12px_32px_-12px_rgba(74,60,49,0.12)]">
-            <ChatPanel />
-          </div>
-        </main>
-      )}
-
-      {/* 底栏状态 */}
-      <footer className="hidden items-center justify-between bg-transparent px-8 py-4 lg:flex">
-        <div className="flex items-center gap-4 text-[11px] font-medium text-[#A69B8F]">
-          <span className="flex items-center gap-2">
-            <span className={`h-1.5 w-1.5 rounded-full ${status === 'recording' ? 'bg-sky-500 animate-pulse' : 'bg-[#C4B6A9]'}`} />
-            {status === 'idle' && '准备开始记录'}
-            {status === 'recording' && '正在聆听，内容持续保存'}
-            {status === 'ended' && '记录已结束，内容已保存'}
-          </span>
-          {segments.length > 0 && (
-            <span className="flex items-center gap-1.5 before:block before:h-1 before:w-1 before:rounded-full before:bg-[#C4B6A9]">
-              {segments.length} 段转写
-            </span>
-          )}
-          {isSaving && (
-            <span className="flex items-center gap-1.5 text-sky-500">
-              <Save size={12} className="animate-pulse" />
-              正在保存
-            </span>
-          )}
-        </div>
-        <div className="text-[10px] font-medium tracking-[0.08em] text-[#C4B6A9]">
-          Piedras · 智能会议记录
-        </div>
-      </footer>
+      <FloatingBottomBar 
+        onToggleTranscript={() => setIsTranscriptOpen(!isTranscriptOpen)}
+        isTranscriptOpen={isTranscriptOpen}
+        onToggleChat={() => setIsChatOpen(!isChatOpen)}
+        isChatOpen={isChatOpen}
+      />
     </div>
   );
 }
