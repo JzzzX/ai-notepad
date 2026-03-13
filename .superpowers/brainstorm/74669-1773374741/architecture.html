@@ -1,0 +1,87 @@
+<h2>页面架构方案</h2>
+<p class="subtitle">从单页应用到多页面产品的路径</p>
+
+<div class="options">
+  <div class="option" data-choice="app-router" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Next.js App Router 多页面（推荐）</h3>
+      <p>利用 Next.js App Router 的嵌套布局，共享侧边栏 layout，每个功能独立路由。</p>
+      <div style="margin-top: 12px; padding: 12px; background: #f8f7f5; border-radius: 8px; font-family: monospace; font-size: 12px; line-height: 1.8; color: #5C4D42;">
+        app/<br>
+        ├── (main)/              ← 共享侧边栏的 layout group<br>
+        │   ├── layout.tsx       ← 侧边栏 + 主内容区<br>
+        │   ├── page.tsx         ← 首页（会议列表）<br>
+        │   ├── meeting/[id]/<br>
+        │   │   └── page.tsx     ← 文档编辑页<br>
+        │   ├── chat/<br>
+        │   │   └── page.tsx     ← AI 对话页<br>
+        │   └── settings/<br>
+        │       └── page.tsx     ← 设置页<br>
+        └── layout.tsx           ← 根 layout
+      </div>
+      <div style="margin-top: 8px;">
+        <div style="display: flex; gap: 16px; font-size: 12px;">
+          <span style="color: #6D8A67;">✓ URL 可分享</span>
+          <span style="color: #6D8A67;">✓ 浏览器前进/后退</span>
+          <span style="color: #6D8A67;">✓ 代码分割</span>
+          <span style="color: #6D8A67;">✓ Next.js 原生模式</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="client-routing" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>客户端状态路由（SPA）</h3>
+      <p>保持单页应用，用 Zustand 状态切换"视图"。侧边栏点击只改变 state，不跳转页面。</p>
+      <div style="margin-top: 12px; padding: 12px; background: #f8f7f5; border-radius: 8px; font-family: monospace; font-size: 12px; line-height: 1.8; color: #5C4D42;">
+        app/<br>
+        ├── page.tsx             ← 唯一页面<br>
+        └── layout.tsx<br>
+        <br>
+        components/<br>
+        ├── AppShell.tsx          ← 侧边栏 + 视图容器<br>
+        ├── views/<br>
+        │   ├── HomeView.tsx      ← 会议列表<br>
+        │   ├── MeetingView.tsx   ← 文档编辑<br>
+        │   ├── ChatView.tsx      ← AI 对话<br>
+        │   └── SettingsView.tsx  ← 设置<br>
+      </div>
+      <div style="margin-top: 8px;">
+        <div style="display: flex; gap: 16px; font-size: 12px;">
+          <span style="color: #6D8A67;">✓ 改动最小</span>
+          <span style="color: #6D8A67;">✓ 切换无闪烁</span>
+          <span style="color: #c0392b;">✗ URL 不可分享</span>
+          <span style="color: #c0392b;">✗ 无浏览器导航</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>方案对比</h3>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>方案 A 优势</h4>
+      <ul>
+        <li>每个页面有独立 URL（/meeting/abc123）</li>
+        <li>浏览器前进/后退自然工作</li>
+        <li>Next.js 自动代码分割，首屏更快</li>
+        <li>符合 Next.js App Router 最佳实践</li>
+        <li>未来可加 SSR/SSG 优化</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>方案 B 优势</h4>
+      <ul>
+        <li>改动量最小，复用现有代码</li>
+        <li>页面切换零延迟</li>
+        <li>状态管理更简单（Zustand 直接控制）</li>
+        <li>不需要处理路由间状态传递</li>
+      </ul>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,183 @@
+<h2>Piedras 产品设计 — 完整页面结构</h2>
+<p class="subtitle">四个核心页面 + 共享侧边栏</p>
+
+<!-- Overall layout mockup -->
+<div class="mockup">
+  <div class="mockup-header">整体布局结构</div>
+  <div class="mockup-body" style="padding: 0;">
+    <div style="display: flex; height: 480px;">
+      <!-- Sidebar -->
+      <div style="width: 200px; background: #F7F3EE; border-right: 1px solid #E3D9CE; padding: 16px; display: flex; flex-direction: column; font-size: 12px;">
+        <!-- Logo -->
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+          <div style="width: 32px; height: 32px; background: #2B2420; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #F5EEE6; font-weight: bold; font-size: 14px;">P</div>
+          <span style="font-weight: 700; color: #3A2E25; font-size: 15px;">Piedras</span>
+        </div>
+
+        <!-- Nav items -->
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: white; border-radius: 10px; margin-bottom: 3px; border: 1px solid #E3D9CE; font-weight: 500; color: #3A2E25;">
+          <span>🏠</span> 首页
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; margin-bottom: 3px; color: #8C7A6B;">
+          <span>💬</span> AI 对话
+        </div>
+
+        <!-- Workspace section -->
+        <div style="font-size: 10px; color: #A69B8F; text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px 10px;">工作区</div>
+        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; background: rgba(0,0,0,0.04); margin-bottom: 2px;">
+          <span style="width: 8px; height: 8px; background: #4ade80; border-radius: 50%;"></span>
+          <span style="color: #3A2E25; font-weight: 500;">项目 Alpha</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; margin-bottom: 2px;">
+          <span style="width: 8px; height: 8px; background: #f87171; border-radius: 50%;"></span>
+          <span style="color: #5C4D42;">候选人张三</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px; color: #A69B8F; font-size: 11px;">
+          <span>+</span> 新建工作区
+        </div>
+
+        <!-- Folders -->
+        <div style="font-size: 10px; color: #A69B8F; text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px 10px;">文件夹</div>
+        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px;">
+          <span style="font-size: 11px;">📁</span>
+          <span style="color: #5C4D42;">面试记录</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 10px;">
+          <span style="font-size: 11px;">📁</span>
+          <span style="color: #5C4D42;">产品会议</span>
+        </div>
+
+        <div style="flex: 1;"></div>
+
+        <!-- Settings -->
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; color: #8C7A6B; border-top: 1px solid #E3D9CE; padding-top: 12px;">
+          <span>⚙️</span> 设置
+        </div>
+      </div>
+
+      <!-- Main content area -->
+      <div style="flex: 1; background: #F9F9F8; display: flex; flex-direction: column;">
+        <!-- Top bar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid #eee;">
+          <div style="font-size: 15px; font-weight: 600; color: #3A2E25;">首页</div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <div style="background: white; border: 1px solid #ddd; border-radius: 8px; padding: 6px 12px; font-size: 11px; color: #888;">🔍 搜索会议...</div>
+            <div style="background: #2B2420; color: white; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;">🎙 新录音</div>
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div style="flex: 1; padding: 20px; overflow-y: auto;">
+          <!-- AI search -->
+          <div style="background: white; border-radius: 14px; padding: 14px 16px; border: 1px solid #e5e0da; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="color: #a09080; font-size: 13px;">✨ 向 AI 提问关于你的会议...</div>
+          </div>
+
+          <!-- Date group -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-size: 12px; color: #8C7A6B; font-weight: 500;">今天 · 3月13日</div>
+            <div style="font-size: 11px; color: #A69B8F;">最新 ↓</div>
+          </div>
+
+          <!-- Meeting cards -->
+          <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #eee; margin-bottom: 8px; cursor: pointer; transition: all 0.15s;">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <div>
+                <div style="font-size: 14px; font-weight: 600; color: #3A2E25; margin-bottom: 4px;">产品评审会</div>
+                <div style="font-size: 11px; color: #a09080;">14:30 · 45分钟 · 📁 产品会议</div>
+              </div>
+              <div style="display: flex; gap: 12px; font-size: 10px; color: #a09080;">
+                <span>📎 3</span>
+                <span>💬 5</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #eee; margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+              <div>
+                <div style="font-size: 14px; font-weight: 600; color: #3A2E25; margin-bottom: 4px;">候选人面试 — 李四</div>
+                <div style="font-size: 11px; color: #a09080;">10:00 · 30分钟 · 📁 面试记录</div>
+              </div>
+              <div style="display: flex; gap: 12px; font-size: 10px; color: #a09080;">
+                <span>📎 1</span>
+                <span>💬 2</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin: 20px 0 12px;">
+            <div style="font-size: 12px; color: #8C7A6B; font-weight: 500;">昨天 · 3月12日</div>
+          </div>
+
+          <div style="background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #eee; margin-bottom: 8px;">
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: #3A2E25; margin-bottom: 4px;">周会纪要</div>
+              <div style="font-size: 11px; color: #a09080;">09:00 · 60分钟</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>四个核心页面</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+    <div style="background: #f8f7f5; border-radius: 12px; padding: 16px; border: 1px solid #e5e0da;">
+      <div style="font-weight: 600; color: #3A2E25; margin-bottom: 6px;">🏠 首页 <code style="font-size: 10px; background: #eee; padding: 2px 6px; border-radius: 4px;">/</code></div>
+      <ul style="font-size: 12px; color: #5C4D42; margin: 0; padding-left: 16px; line-height: 1.8;">
+        <li>AI 搜索框（跨会议提问）</li>
+        <li>按日期分组的会议列表</li>
+        <li>新录音按钮</li>
+        <li>筛选：文件夹、日期范围</li>
+      </ul>
+    </div>
+    <div style="background: #f8f7f5; border-radius: 12px; padding: 16px; border: 1px solid #e5e0da;">
+      <div style="font-weight: 600; color: #3A2E25; margin-bottom: 6px;">📝 文档页 <code style="font-size: 10px; background: #eee; padding: 2px 6px; border-radius: 4px;">/meeting/[id]</code></div>
+      <ul style="font-size: 12px; color: #5C4D42; margin: 0; padding-left: 16px; line-height: 1.8;">
+        <li>当前 page.tsx 的核心内容</li>
+        <li>NoteEditor + EnhancedNotes</li>
+        <li>底部浮动工具栏（录音/转写/Chat）</li>
+        <li>浮动面板（转写、Chat）</li>
+      </ul>
+    </div>
+    <div style="background: #f8f7f5; border-radius: 12px; padding: 16px; border: 1px solid #e5e0da;">
+      <div style="font-weight: 600; color: #3A2E25; margin-bottom: 6px;">💬 AI 对话 <code style="font-size: 10px; background: #eee; padding: 2px 6px; border-radius: 4px;">/chat</code></div>
+      <ul style="font-size: 12px; color: #5C4D42; margin: 0; padding-left: 16px; line-height: 1.8;">
+        <li>全屏 AI 对话界面</li>
+        <li>跨会议知识库问答</li>
+        <li>来源引用 + 跳转到会议</li>
+        <li>对话历史列表</li>
+      </ul>
+    </div>
+    <div style="background: #f8f7f5; border-radius: 12px; padding: 16px; border: 1px solid #e5e0da;">
+      <div style="font-weight: 600; color: #3A2E25; margin-bottom: 6px;">⚙️ 设置 <code style="font-size: 10px; background: #eee; padding: 2px 6px; border-radius: 4px;">/settings</code></div>
+      <ul style="font-size: 12px; color: #5C4D42; margin: 0; padding-left: 16px; line-height: 1.8;">
+        <li>ASR 配置（阿里云等）</li>
+        <li>LLM 配置（API Key、模型选择）</li>
+        <li>模板管理</li>
+        <li>MCP 生态接入</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>路由结构</h3>
+  <div style="background: #2B2420; border-radius: 12px; padding: 16px; font-family: monospace; font-size: 12px; line-height: 2; color: #D8CEC4;">
+    <span style="color: #4ade80;">app/</span><br>
+    ├── layout.tsx <span style="color: #8C7A6B;">← 根 layout（html/body）</span><br>
+    ├── <span style="color: #60a5fa;">(main)/</span> <span style="color: #8C7A6B;">← 路由组：共享侧边栏</span><br>
+    │   ├── layout.tsx <span style="color: #8C7A6B;">← Sidebar + {children}</span><br>
+    │   ├── page.tsx <span style="color: #fbbf24;">← 首页（会议列表）</span><br>
+    │   ├── <span style="color: #60a5fa;">meeting/[id]/</span><br>
+    │   │   └── page.tsx <span style="color: #fbbf24;">← 文档编辑页</span><br>
+    │   ├── <span style="color: #60a5fa;">chat/</span><br>
+    │   │   └── page.tsx <span style="color: #fbbf24;">← AI 对话页</span><br>
+    │   └── <span style="color: #60a5fa;">settings/</span><br>
+    │       └── page.tsx <span style="color: #fbbf24;">← 设置页</span><br>
+    └── <span style="color: #60a5fa;">api/</span> <span style="color: #8C7A6B;">← 现有 API 不变</span>
+  </div>
+</div>
