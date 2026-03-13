@@ -18,6 +18,7 @@ import {
   GripVertical,
   ArrowRightLeft,
 } from 'lucide-react';
+import WorkspaceIconBadge from '@/components/WorkspaceIconBadge';
 import { useMeetingStore, type MeetingListItem } from '@/lib/store';
 import { chatAcrossMeetings } from '@/lib/llm';
 import { v4 as uuidv4 } from 'uuid';
@@ -373,12 +374,13 @@ export default function HomePage() {
                         {meetingListScope === 'all' && meeting.workspace && (
                           <>
                             <span className="opacity-50">·</span>
-                            <span className="inline-flex items-center gap-1 rounded-full border border-[#E3D9CE] bg-[#FCFAF8] px-2 py-0.5 text-[11px] text-[#6C5D50]">
-                              <span
-                                className="h-2 w-2 rounded-full"
-                                style={{ backgroundColor: meeting.workspace.color }}
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#E3D9CE] bg-[#FCFAF8] px-2 py-1 text-[11px] text-[#6C5D50]">
+                              <WorkspaceIconBadge
+                                icon={meeting.workspace.icon}
+                                color={meeting.workspace.color}
+                                size="sm"
                               />
-                              {meeting.workspace.name}
+                              <span>{meeting.workspace.name}</span>
                             </span>
                           </>
                         )}
@@ -445,10 +447,7 @@ export default function HomePage() {
                                   className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm text-[#4A3C31] transition-colors hover:bg-[#F7F3EE] disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
                                 >
                                   <span className="flex min-w-0 items-center gap-2">
-                                    <span
-                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                      style={{ backgroundColor: workspace.color }}
-                                    />
+                                    <WorkspaceIconBadge icon={workspace.icon} color={workspace.color} size="sm" />
                                     <span className="truncate">{workspace.name}</span>
                                   </span>
                                   {isCurrent ? (

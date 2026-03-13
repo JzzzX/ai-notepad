@@ -7,13 +7,14 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const body = (await req.json()) as { name?: string; description?: string; color?: string };
+    const body = (await req.json()) as { name?: string; description?: string; icon?: string; color?: string };
 
     const workspace = await prisma.workspace.update({
       where: { id },
       data: {
         ...(body.name !== undefined && { name: body.name.trim() }),
         ...(body.description !== undefined && { description: body.description.trim() }),
+        ...(body.icon !== undefined && { icon: body.icon.trim() }),
         ...(body.color !== undefined && { color: body.color.trim() }),
       },
     });

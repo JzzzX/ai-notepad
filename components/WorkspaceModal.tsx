@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, Plus, Sparkles, X } from 'lucide-react';
+import { Loader2, Pencil, Plus, WandSparkles, X } from 'lucide-react';
+import WorkspaceIconBadge from '@/components/WorkspaceIconBadge';
+import {
+  getDefaultWorkspaceIconKey,
+  suggestWorkspaceIconKey,
+  WORKSPACE_ICON_OPTIONS,
+  type WorkspaceIconKey,
+} from '@/lib/workspace-icons';
+import type { Workspace } from '@/lib/types';
 
 const PRESET_COLORS = ['#94a3b8', '#f87171', '#fb923c', '#fbbf24', '#4ade80', '#38bdf8', '#a78bfa', '#f472b6'];
 const DEFAULT_COLOR = PRESET_COLORS[0];
@@ -11,10 +19,15 @@ interface WorkspaceDraft {
   name: string;
   description: string;
   color: string;
+  icon: WorkspaceIconKey;
 }
 
-interface WorkspaceCreateModalProps {
+type WorkspaceModalMode = 'create' | 'edit';
+
+interface WorkspaceModalProps {
   open: boolean;
+  mode: WorkspaceModalMode;
+  workspace?: Workspace | null;
   onClose: () => void;
   onSubmit: (input: WorkspaceDraft) => Promise<void>;
 }
@@ -23,17 +36,44 @@ const DEFAULT_DRAFT: WorkspaceDraft = {
   name: '',
   description: '',
   color: DEFAULT_COLOR,
+  icon: getDefaultWorkspaceIconKey(),
 };
 
-export default function WorkspaceCreateModal({
+function normalizeIcon(icon?: string | null): WorkspaceIconKey {
+  if (icon && WORKSPACE_ICON_OPTIONS.some((option) => option.key === icon)) {
+    return icon as WorkspaceIconKey;
+  }
+  return getDefaultWorkspaceIconKey();
+}
+
+function toDraft(workspace?: Workspace | null): WorkspaceDraft {
+  if (!workspace) {
+    return {
+      ...DEFAULT_DRAFT,
+      icon: getDefaultWorkspaceIconKey(),
+    };
+  }
+
+  return {
+    name: workspace.name,
+    description: workspace.description || '',
+    color: workspace.color,
+    icon: normalizeIcon(workspace.icon),
+  };
+}
+
+export default function WorkspaceModal({
   open,
+  mode,
+  workspace,
   onClose,
   onSubmit,
-}: WorkspaceCreateModalProps) {
+}: WorkspaceModalProps) {
   const [mounted, setMounted] = useState(false);
   const [draft, setDraft] = useState<WorkspaceDraft>(DEFAULT_DRAFT);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [iconTouched, setIconTouched] = useState(false);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -42,10 +82,13 @@ export default function WorkspaceCreateModal({
 
   useEffect(() => {
     if (!open) return;
-    setDraft(DEFAULT_DRAFT);
+    setDraft(toDraft(workspace));
     setError('');
     setIsSubmitting(false);
-  }, [open]);
+    setIconTouched(mode === 'edit');
+  }, [mode, open, workspace]);
+
+  const suggestedIcon = useMemo(() => suggestWorkspaceIconKey(draft.name), [draft.name]);
 
   useEffect(() => {
     if (!open || !mounted) return;
@@ -66,9 +109,18 @@ export default function WorkspaceCreateModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSubmitting, onClose, open]);
 
-  const previewName = useMemo(() => draft.name.trim() || '新工作区', [draft.name]);
+  useEffect(() => {
+    if (!open || mode !== 'create' || iconTouched) return;
+    const nextIcon = suggestWorkspaceIconKey(draft.name);
+    setDraft((current) => (current.icon === nextIcon ? current : { ...current, icon: nextIcon }));
+  }, [draft.name, iconTouched, mode, open]);
+
+  const previewName = useMemo(
+    () => draft.name.trim() || (mode === 'create' ? '新工作区' : '工作区名称'),
+    [draft.name, mode]
+  );
   const previewDescription = useMemo(
-    () => draft.description.trim() || '用一句简短描述，帮助你快速识别这个工作区的用途。',
+    () => draft.description.trim() || '简短描述，可选',
     [draft.description]
   );
 
@@ -88,32 +140,35 @@ export default function WorkspaceCreateModal({
         name: draft.name.trim(),
         description: draft.description.trim(),
         color: draft.color,
+        icon: draft.icon,
       });
       onClose();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : '创建工作区失败，请稍后重试');
+      setError(submitError instanceof Error ? submitError.message : '保存失败，请稍后重试');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const title = mode === 'create' ? '创建工作区' : '编辑工作区';
+  const subtitle = mode === 'create' ? '把不同主题分开管理' : '更新名称、图标和颜色';
+  const submitLabel = mode === 'create' ? '创建' : '保存';
+
   const modalContent = (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#2B2420]/26 p-4 backdrop-blur-sm sm:p-6">
       <button
         type="button"
-        aria-label="关闭创建工作区弹窗"
+        aria-label="关闭工作区弹窗"
         className="absolute inset-0 cursor-default"
         onClick={handleClose}
       />
 
-      <div className="relative z-10 flex w-full max-w-[760px] flex-col overflow-hidden rounded-[32px] border border-[#E3D9CE]/70 bg-[#FCF9F5] shadow-[0_30px_80px_rgba(58,46,37,0.18)] animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative z-10 flex w-full max-w-[720px] flex-col overflow-hidden rounded-[32px] border border-[#E3D9CE]/70 bg-[#FCF9F5] shadow-[0_30px_80px_rgba(58,46,37,0.18)] animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-start justify-between border-b border-[#E8DED3] px-6 py-5 sm:px-7">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#B29F8B]">Workspace</p>
-            <h2 className="mt-2 font-song text-[24px] font-semibold text-[#3A2E25]">创建工作区</h2>
-            <p className="mt-2 max-w-[460px] text-sm leading-6 text-[#7B6A5B]">
-              把不同客户、项目或议题拆开管理。创建后会自动切换到新工作区，后续的会议、文件夹和 AI 问答都会在这里继续累积。
-            </p>
+            <h2 className="mt-2 font-song text-[24px] font-semibold text-[#3A2E25]">{title}</h2>
+            <p className="mt-2 text-sm text-[#7B6A5B]">{subtitle}</p>
           </div>
           <button
             type="button"
@@ -128,7 +183,7 @@ export default function WorkspaceCreateModal({
         <div className="grid gap-6 px-6 py-6 sm:px-7 lg:grid-cols-[minmax(0,1.2fr)_280px]">
           <div className="space-y-5">
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-[#5C4D42]">工作区名称</span>
+              <span className="mb-2 block text-sm font-medium text-[#5C4D42]">名称</span>
               <input
                 ref={nameInputRef}
                 value={draft.name}
@@ -139,7 +194,7 @@ export default function WorkspaceCreateModal({
                     void handleSubmit();
                   }
                 }}
-                placeholder="例如：Acme 项目、候选人面试、政策研究"
+                placeholder="例如：Acme 项目"
                 className="w-full rounded-2xl border border-[#D8CEC4] bg-white px-4 py-3 text-sm text-[#3A2E25] placeholder:text-[#AE9D8E] focus:border-[#C2B3A4] focus:outline-none focus:ring-4 focus:ring-[#EADFD3]/70"
               />
             </label>
@@ -149,11 +204,49 @@ export default function WorkspaceCreateModal({
               <textarea
                 value={draft.description}
                 onChange={(event) => setDraft((prev) => ({ ...prev, description: event.target.value }))}
-                placeholder="这个工作区主要记录什么内容？例如：与 Acme 客户有关的销售通话、需求确认与周例会。"
-                rows={4}
+                placeholder="一句话说明用途，可选"
+                rows={3}
                 className="w-full resize-none rounded-2xl border border-[#D8CEC4] bg-white px-4 py-3 text-sm leading-6 text-[#3A2E25] placeholder:text-[#AE9D8E] focus:border-[#C2B3A4] focus:outline-none focus:ring-4 focus:ring-[#EADFD3]/70"
               />
             </label>
+
+            <div>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="block text-sm font-medium text-[#5C4D42]">图标</span>
+                {mode === 'create' ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-[#9D8B7B]">
+                    <WandSparkles size={12} />
+                    自动推荐
+                  </span>
+                ) : null}
+              </div>
+              <div className="grid grid-cols-5 gap-2.5 sm:grid-cols-5">
+                {WORKSPACE_ICON_OPTIONS.map((option) => {
+                  const selected = draft.icon === option.key;
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => {
+                        setIconTouched(true);
+                        setDraft((prev) => ({ ...prev, icon: option.key }));
+                      }}
+                      className={`rounded-2xl border px-3 py-2.5 transition-all ${
+                        selected
+                          ? 'border-[#5C4D42] bg-white shadow-sm ring-2 ring-[#E8DED3]'
+                          : 'border-transparent bg-white/70 hover:border-[#D8CEC4] hover:bg-white'
+                      }`}
+                      aria-label={`选择图标 ${option.label}`}
+                      title={option.label}
+                    >
+                      <div className="flex items-center justify-center">
+                        <WorkspaceIconBadge icon={option.key} color={draft.color} size="sm" />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
             <div>
               <span className="mb-3 block text-sm font-medium text-[#5C4D42]">颜色</span>
@@ -191,37 +284,32 @@ export default function WorkspaceCreateModal({
 
           <div className="rounded-[28px] border border-[#E8DED3] bg-white/80 p-5 shadow-sm">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#B29F8B]">
-              <Sparkles size={14} />
-              侧边栏预览
+              预览
             </div>
 
             <div className="mt-5 rounded-[24px] border border-[#E3D9CE] bg-white p-4 shadow-[0_10px_20px_rgba(58,46,37,0.08)]">
               <div className="flex items-center gap-3">
-                <span
-                  className="inline-block h-3.5 w-3.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: draft.color }}
-                />
+                <WorkspaceIconBadge icon={draft.icon} color={draft.color} size="lg" />
                 <div className="min-w-0">
                   <div className="truncate text-base font-semibold text-[#3A2E25]">{previewName}</div>
-                  <div className="mt-1 text-xs text-[#A09082]">会成为一个新的会议归档空间</div>
+                  <div className="mt-1 line-clamp-2 text-xs text-[#A09082]">{previewDescription}</div>
                 </div>
               </div>
+            </div>
 
-              <div className="mt-5 rounded-2xl bg-[#F7F3EE] px-4 py-3 text-sm leading-6 text-[#7B6A5B]">
-                {previewDescription}
+            {mode === 'create' ? (
+              <div className="mt-4 flex items-center gap-2 text-xs text-[#9D8B7B]">
+                <WorkspaceIconBadge icon={suggestedIcon} color={draft.color} size="sm" />
+                当前推荐：{WORKSPACE_ICON_OPTIONS.find((option) => option.key === suggestedIcon)?.label || '通用'}
               </div>
-            </div>
-
-            <div className="mt-4 rounded-2xl bg-[#F4E7CB]/45 px-4 py-3 text-sm leading-6 text-[#7A6245]">
-              创建后会自动切换过去，新的会议与文件夹都会优先落在这里。
-            </div>
+            ) : null}
           </div>
         </div>
 
         <div className="flex items-center justify-between border-t border-[#E8DED3] bg-white/60 px-6 py-4 sm:px-7">
           <div className="hidden items-center gap-2 text-sm text-[#9D8B7B] sm:flex">
-            <Plus size={15} />
-            用工作区把不同语境彻底分开
+            {mode === 'create' ? <Plus size={15} /> : <Pencil size={15} />}
+            {mode === 'create' ? '创建后会自动切换' : '保存后立即生效'}
           </div>
           <div className="ml-auto flex items-center gap-3">
             <button
@@ -237,8 +325,8 @@ export default function WorkspaceCreateModal({
               disabled={!draft.name.trim() || isSubmitting}
               className="inline-flex min-w-[112px] items-center justify-center gap-2 rounded-2xl bg-[#4A3C31] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#3A2E25] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-              {isSubmitting ? '创建中...' : '创建工作区'}
+              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : mode === 'create' ? <Plus size={16} /> : <Pencil size={16} />}
+              {isSubmitting ? '保存中...' : submitLabel}
             </button>
           </div>
         </div>

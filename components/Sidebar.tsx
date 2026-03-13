@@ -10,14 +10,14 @@ import {
   Plus,
   Pencil,
   Trash2,
-  Check,
   X,
   ChevronDown,
   ChevronRight,
   Menu,
 } from 'lucide-react';
 import PiedrasMark from '@/components/PiedrasMark';
-import WorkspaceCreateModal from '@/components/WorkspaceCreateModal';
+import WorkspaceIconBadge from '@/components/WorkspaceIconBadge';
+import WorkspaceModal from '@/components/WorkspaceModal';
 import { useMeetingStore } from '@/lib/store';
 
 export default function Sidebar() {
@@ -39,13 +39,18 @@ export default function Sidebar() {
   } = useMeetingStore();
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [workspaceModalState, setWorkspaceModalState] = useState<{
+    mode: 'create' | 'edit';
+    workspaceId?: string;
+  } | null>(null);
   const [highlightedWorkspaceId, setHighlightedWorkspaceId] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [dragOverWorkspaceId, setDragOverWorkspaceId] = useState<string | null>(null);
   const workspaceItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const editingWorkspace =
+    workspaceModalState?.mode === 'edit'
+      ? workspaces.find((workspace) => workspace.id === workspaceModalState.workspaceId) || null
+      : null;
 
   useEffect(() => {
     void loadWorkspaces();
@@ -97,8 +102,7 @@ export default function Sidebar() {
 
     setCurrentWorkspaceId(id);
     reset();
-    setEditingId(null);
-    setIsCreateModalOpen(false);
+    setWorkspaceModalState(null);
     setMobileOpen(false);
 
     if (isMeetingRoute) {
@@ -109,17 +113,21 @@ export default function Sidebar() {
     await loadMeetingList();
   };
 
-  const handleCreate = async (input: { name: string; description: string; color: string }) => {
+  const handleSaveWorkspace = async (input: {
+    name: string;
+    description: string;
+    color: string;
+    icon: string;
+  }) => {
+    if (workspaceModalState?.mode === 'edit' && workspaceModalState.workspaceId) {
+      await updateWorkspace(workspaceModalState.workspaceId, input);
+      setHighlightedWorkspaceId(workspaceModalState.workspaceId);
+      return;
+    }
+
     const ws = await createWorkspace(input);
     setHighlightedWorkspaceId(ws.id);
     await handleSwitch(ws.id);
-  };
-
-  const handleRename = async (id: string) => {
-    const name = editName.trim();
-    if (!name) return;
-    await updateWorkspace(id, { name });
-    setEditingId(null);
   };
 
   const handleDelete = async (id: string) => {
@@ -189,7 +197,7 @@ export default function Sidebar() {
         <div className="mb-1.5 flex items-center justify-between px-3">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-[#A69B8F]">工作区</span>
           <button
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => setWorkspaceModalState({ mode: 'create' })}
             aria-label="创建工作区"
             className="rounded-md p-1 text-[#A69B8F] hover:bg-[#EFE9E2] hover:text-[#5C4D42]"
           >
@@ -206,87 +214,69 @@ export default function Sidebar() {
               }}
               className="group relative"
             >
-              {editingId === ws.id ? (
-                <div className="flex items-center gap-1.5 rounded-xl bg-white px-3 py-2">
-                  <input
-                    autoFocus
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleRename(ws.id);
-                      if (e.key === 'Escape') setEditingId(null);
-                    }}
-                    className="min-w-0 flex-1 rounded-lg border border-[#D8CEC4] bg-white px-2 py-1 text-sm text-[#3A2E25] focus:outline-none focus:ring-1 focus:ring-[#D8CEC4]"
-                  />
-                  <button onClick={() => handleRename(ws.id)} className="rounded-md p-1 text-[#6D8A67] hover:bg-[#EFE9E2]">
-                    <Check size={13} />
-                  </button>
-                  <button onClick={() => setEditingId(null)} className="rounded-md p-1 text-[#8C7A6B] hover:bg-[#EFE9E2]">
-                    <X size={13} />
-                  </button>
-                </div>
-              ) : (
-                <div
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setDragOverWorkspaceId(ws.id);
-                  }}
-                  onDragLeave={() => {
-                    setDragOverWorkspaceId((prev) => (prev === ws.id ? null : prev));
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    const meetingIdValue = event.dataTransfer.getData('text/meeting-id');
-                    if (!meetingIdValue) return;
-                    void handleWorkspaceDrop(ws.id, meetingIdValue);
-                  }}
-                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all ${
-                    ws.id === currentWorkspaceId
-                      ? 'bg-white font-semibold text-[#3A2E25] shadow-sm border border-[#E3D9CE]/50'
-                      : 'text-[#5C4D42] hover:bg-[#EFE9E2]'
-                  } ${
-                    highlightedWorkspaceId === ws.id
-                      ? 'ring-2 ring-[#E9D7B8] ring-offset-2 ring-offset-[#F7F3EE] shadow-[0_12px_24px_rgba(191,156,100,0.18)]'
-                      : ''
-                  } ${
-                    dragOverWorkspaceId === ws.id
-                      ? 'ring-2 ring-sky-300 ring-offset-1 ring-offset-[#F7F3EE]'
-                      : ''
-                  }`}
+              <div
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDragOverWorkspaceId(ws.id);
+                }}
+                onDragLeave={() => {
+                  setDragOverWorkspaceId((prev) => (prev === ws.id ? null : prev));
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  const meetingIdValue = event.dataTransfer.getData('text/meeting-id');
+                  if (!meetingIdValue) return;
+                  void handleWorkspaceDrop(ws.id, meetingIdValue);
+                }}
+                className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all ${
+                  ws.id === currentWorkspaceId
+                    ? 'bg-white font-semibold text-[#3A2E25] shadow-sm border border-[#E3D9CE]/50'
+                    : 'text-[#5C4D42] hover:bg-[#EFE9E2]'
+                } ${
+                  highlightedWorkspaceId === ws.id
+                    ? 'ring-2 ring-[#E9D7B8] ring-offset-2 ring-offset-[#F7F3EE] shadow-[0_12px_24px_rgba(191,156,100,0.18)]'
+                    : ''
+                } ${
+                  dragOverWorkspaceId === ws.id
+                    ? 'ring-2 ring-sky-300 ring-offset-1 ring-offset-[#F7F3EE]'
+                    : ''
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => handleSwitch(ws.id)}
+                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                 >
+                  <WorkspaceIconBadge icon={ws.icon} color={ws.color} size="sm" />
+                  <span className="min-w-0 flex-1 truncate">{ws.name}</span>
+                </button>
+                <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                   <button
                     type="button"
-                    onClick={() => handleSwitch(ws.id)}
-                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setWorkspaceModalState({ mode: 'edit', workspaceId: ws.id });
+                    }}
+                    className="rounded-md p-1 text-[#8C7A6B] hover:bg-[#EFE9E2] hover:text-[#5C4D42]"
+                    aria-label={`编辑工作区 ${ws.name}`}
                   >
-                    <span
-                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: ws.color }}
-                    />
-                    <span className="min-w-0 flex-1 truncate">{ws.name}</span>
+                    <Pencil size={11} />
                   </button>
-                  <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  {workspaces.length > 1 && (
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setEditingId(ws.id); setEditName(ws.name); }}
-                      className="rounded-md p-1 text-[#8C7A6B] hover:bg-[#EFE9E2] hover:text-[#5C4D42]"
-                      aria-label={`重命名工作区 ${ws.name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleDelete(ws.id);
+                      }}
+                      className="rounded-md p-1 text-[#8C7A6B] hover:bg-red-50 hover:text-red-500"
+                      aria-label={`删除工作区 ${ws.name}`}
                     >
-                      <Pencil size={11} />
+                      <Trash2 size={11} />
                     </button>
-                    {workspaces.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleDelete(ws.id); }}
-                        className="rounded-md p-1 text-[#8C7A6B] hover:bg-red-50 hover:text-red-500"
-                        aria-label={`删除工作区 ${ws.name}`}
-                      >
-                        <Trash2 size={11} />
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>
@@ -366,10 +356,12 @@ export default function Sidebar() {
         </div>
       )}
 
-      <WorkspaceCreateModal
-        open={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreate}
+      <WorkspaceModal
+        open={!!workspaceModalState}
+        mode={workspaceModalState?.mode ?? 'create'}
+        workspace={editingWorkspace}
+        onClose={() => setWorkspaceModalState(null)}
+        onSubmit={handleSaveWorkspace}
       />
     </>
   );

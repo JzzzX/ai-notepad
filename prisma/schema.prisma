@@ -11,6 +11,7 @@ model Workspace {
   id          String   @id @default(uuid())
   name        String
   description String   @default("")
+  icon        String   @default("folder")
   color       String   @default("#94a3b8")
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())

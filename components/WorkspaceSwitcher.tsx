@@ -74,8 +74,12 @@ export default function WorkspaceSwitcher() {
   const handleRename = async (id: string) => {
     const name = editName.trim();
     if (!name) return;
-    await updateWorkspace(id, { name });
-    setEditingId(null);
+    try {
+      await updateWorkspace(id, { name });
+      setEditingId(null);
+    } catch (error) {
+      console.error('更新工作区失败:', error);
+    }
   };
 
   const handleDelete = async (id: string) => {

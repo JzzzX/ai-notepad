@@ -25,7 +25,7 @@ export interface MeetingListItem {
   folderId: string | null;
   workspaceId: string;
   folder?: Folder | null;
-  workspace?: Pick<Workspace, 'id' | 'name' | 'color'> | null;
+  workspace?: Pick<Workspace, 'id' | 'name' | 'icon' | 'color'> | null;
   _count: { segments: number; chatMessages: number };
 }
 
@@ -125,8 +125,8 @@ interface MeetingStore {
 
   // Workspace Actions
   loadWorkspaces: () => Promise<void>;
-  createWorkspace: (input: { name: string; description?: string; color?: string }) => Promise<Workspace>;
-  updateWorkspace: (id: string, input: { name?: string; description?: string; color?: string }) => Promise<void>;
+  createWorkspace: (input: { name: string; description?: string; icon?: string; color?: string }) => Promise<Workspace>;
+  updateWorkspace: (id: string, input: { name?: string; description?: string; icon?: string; color?: string }) => Promise<void>;
   deleteWorkspace: (id: string) => Promise<void>;
   setCurrentWorkspaceId: (id: string | null) => void;
 }
@@ -536,6 +536,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
                   ? {
                       id: nextWorkspace.id,
                       name: nextWorkspace.name,
+                      icon: nextWorkspace.icon,
                       color: nextWorkspace.color,
                     }
                   : null,
@@ -599,20 +600,36 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
   },
 
   updateWorkspace: async (id, input) => {
-    try {
-      const res = await fetch(`/api/workspaces/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!res.ok) throw new Error('更新工作区失败');
-      const updated = (await res.json()) as Workspace;
-      set((state) => ({
-        workspaces: state.workspaces.map((w) => (w.id === id ? updated : w)),
-      }));
-    } catch (e) {
-      console.error('更新工作区失败:', e);
+    const res = await fetch(`/api/workspaces/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error((data as { error?: string }).error || '更新工作区失败');
+      console.error('更新工作区失败:', error);
+      throw error;
     }
+    const updated = data as Workspace;
+    set((state) => ({
+      workspaces: state.workspaces.map((w) => (w.id === id ? updated : w)),
+      meetingList: state.meetingList.map((meeting) =>
+        meeting.workspaceId === id
+          ? {
+              ...meeting,
+              workspace: meeting.workspace
+                ? {
+                    id: updated.id,
+                    name: updated.name,
+                    icon: updated.icon,
+                    color: updated.color,
+                  }
+                : meeting.workspace,
+            }
+          : meeting
+      ),
+    }));
   },
 
   deleteWorkspace: async (id) => {

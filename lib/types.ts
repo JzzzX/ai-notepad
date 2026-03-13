@@ -59,6 +59,7 @@ export interface Workspace {
   id: string;
   name: string;
   description: string;
+  icon: string;
   color: string;
   sortOrder: number;
 }

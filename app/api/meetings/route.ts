@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
         select: {
           id: true,
           name: true,
+          icon: true,
           color: true,
         },
       },

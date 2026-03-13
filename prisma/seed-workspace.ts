@@ -15,6 +15,7 @@ async function main() {
     data: {
       name: '默认工作区',
       description: '系统创建的默认工作区',
+      icon: 'folder',
       color: '#94a3b8',
       sortOrder: 0,
     },
