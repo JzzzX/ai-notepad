@@ -98,6 +98,30 @@ export interface Template {
   sortOrder?: number;
 }
 
+export type GlobalChatScope = 'my_notes' | 'all_meetings';
+
+export interface GlobalChatFilters {
+  titleKeyword?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  folderId?: string;
+}
+
+export interface GlobalChatSessionSummary {
+  id: string;
+  title: string;
+  scope: GlobalChatScope;
+  workspaceId: string | null;
+  workspace?: Pick<Workspace, 'id' | 'name' | 'icon' | 'color'> | null;
+  filters: GlobalChatFilters;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface GlobalChatSessionDetail extends GlobalChatSessionSummary {
+  messages: ChatMessage[];
+}
+
 export interface Meeting {
   id: string;
   title: string;

@@ -19,6 +19,7 @@ model Workspace {
   meetings              Meeting[]
   folders               Folder[]
   customVocabularyTerms CustomVocabularyTerm[]
+  globalChatSessions    GlobalChatSession[]
 }
 
 model Meeting {
@@ -117,4 +118,33 @@ model AsrVocabularySyncState {
   lastError         String   @default("")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model GlobalChatSession {
+  id         String              @id @default(uuid())
+  title      String
+  scope      String
+  filters    String              @default("{}")
+  workspaceId String?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  workspace Workspace?           @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  messages  GlobalChatMessage[]
+
+  @@index([updatedAt])
+  @@index([workspaceId])
+}
+
+model GlobalChatMessage {
+  id         String            @id @default(uuid())
+  role       String
+  content    String
+  timestamp  Float
+  templateId String?
+  sessionId  String
+
+  session GlobalChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, timestamp])
 }

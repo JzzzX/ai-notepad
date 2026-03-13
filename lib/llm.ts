@@ -154,7 +154,8 @@ export async function chatAcrossMeetings(
   question: string,
   filters?: GlobalChatFilters,
   promptOptions?: PromptOptions,
-  llmSettings?: LlmSettings
+  llmSettings?: LlmSettings,
+  templatePrompt?: string
 ): Promise<ReadableStream<Uint8Array> | null> {
   const res = await fetch('/api/chat/global', {
     method: 'POST',
@@ -165,6 +166,7 @@ export async function chatAcrossMeetings(
       filters,
       promptOptions,
       llmRuntimeConfig: buildRuntimeConfig(llmSettings),
+      templatePrompt,
     }),
   });
 

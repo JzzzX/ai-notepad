@@ -1,203 +1,280 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { ArrowRight, Clock3, MessageSquareText, Sparkles } from 'lucide-react';
+import GlobalChatComposer, {
+  type GlobalChatSubmitPayload,
+} from '@/components/chat/GlobalChatComposer';
 import {
-  Send,
-  Bot,
-  User,
-  Loader2,
-} from 'lucide-react';
+  GLOBAL_CHAT_DRAFT_KEY,
+  GLOBAL_CHAT_RECIPES,
+  type GlobalChatDraft,
+} from '@/lib/global-chat-ui';
 import { useMeetingStore } from '@/lib/store';
-import { chatAcrossMeetings } from '@/lib/llm';
-import { v4 as uuidv4 } from 'uuid';
-import type { ChatMessage } from '@/lib/types';
+import type { GlobalChatFilters, GlobalChatScope, GlobalChatSessionSummary, Template } from '@/lib/types';
 
-export default function ChatPage() {
+function formatRelativeTime(value: string) {
+  const date = new Date(value);
+  const diff = Date.now() - date.getTime();
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diff < hour) {
+    return `${Math.max(1, Math.round(diff / minute))} 分钟前`;
+  }
+  if (diff < day) {
+    return `${Math.round(diff / hour)} 小时前`;
+  }
+  if (diff < day * 7) {
+    return `${Math.round(diff / day)} 天前`;
+  }
+
+  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+}
+
+function scopeLabel(scope: GlobalChatScope) {
+  return scope === 'my_notes' ? '我的笔记' : '全部会议';
+}
+
+export default function ChatHomePage() {
+  const router = useRouter();
   const {
     currentWorkspaceId,
-    promptOptions,
-    llmSettings,
+    workspaces,
+    folders,
+    loadFolders,
+    loadWorkspaces,
   } = useMeetingStore();
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [sessions, setSessions] = useState<GlobalChatSessionSummary[]>([]);
   const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [scope, setScope] = useState<'workspace' | 'all'>('workspace');
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [scope, setScope] = useState<GlobalChatScope>('my_notes');
+  const [filters, setFilters] = useState<GlobalChatFilters>({});
+  const [isBooting, setIsBooting] = useState(true);
+  const [isLaunching, setIsLaunching] = useState(false);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    void loadWorkspaces();
+    void loadFolders();
+  }, [loadFolders, loadWorkspaces]);
 
-  const handleSend = useCallback(async () => {
-    const q = input.trim();
-    if (!q || isLoading) return;
+  useEffect(() => {
+    void loadFolders();
+  }, [currentWorkspaceId, loadFolders]);
 
-    setInput('');
-    if (inputRef.current) inputRef.current.style.height = '52px';
+  useEffect(() => {
+    let active = true;
 
-    const userMsg: ChatMessage = {
-      id: uuidv4(),
-      role: 'user',
-      content: q,
-      timestamp: Date.now(),
+    const bootstrap = async () => {
+      try {
+        const [templatesRes, sessionsRes] = await Promise.all([
+          fetch('/api/templates'),
+          fetch('/api/chat/sessions'),
+        ]);
+
+        if (!active) return;
+
+        if (templatesRes.ok) {
+          setTemplates((await templatesRes.json()) as Template[]);
+        }
+
+        if (sessionsRes.ok) {
+          setSessions((await sessionsRes.json()) as GlobalChatSessionSummary[]);
+        }
+      } catch (error) {
+        console.error('Load chat home failed:', error);
+      } finally {
+        if (active) {
+          setIsBooting(false);
+        }
+      }
     };
-    setMessages((prev) => [...prev, userMsg]);
-    setIsLoading(true);
 
-    try {
-      const filters: Record<string, string | undefined> = {};
-      if (scope === 'workspace' && currentWorkspaceId) {
-        filters.workspaceId = currentWorkspaceId;
-      }
+    void bootstrap();
+    return () => {
+      active = false;
+    };
+  }, []);
 
-      const stream = await chatAcrossMeetings(messages, q, filters, promptOptions, llmSettings);
-      if (!stream) throw new Error('No stream');
+  const currentWorkspaceName = useMemo(
+    () => workspaces.find((workspace) => workspace.id === currentWorkspaceId)?.name || null,
+    [currentWorkspaceId, workspaces]
+  );
 
-      const reader = stream.getReader();
-      const decoder = new TextDecoder();
-      let fullContent = '';
-      const msgId = uuidv4();
+  const handleLaunch = useCallback(
+    async (payload?: GlobalChatSubmitPayload) => {
+      const nextScope = payload?.nextScope || scope;
+      const nextQuestion = (payload?.question || input).trim();
+      if (!nextQuestion || isLaunching) return;
 
-      setMessages((prev) => [...prev, { id: msgId, role: 'assistant', content: '', timestamp: Date.now() }]);
+      setIsLaunching(true);
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        fullContent += decoder.decode(value, { stream: true });
-        setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, content: fullContent } : m)));
-      }
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : '未知错误';
-      setMessages((prev) => [...prev, {
-        id: uuidv4(),
-        role: 'assistant',
-        content: `抱歉，请求出错了。\n\n${detail}`,
-        timestamp: Date.now(),
-      }]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [input, isLoading, messages, scope, currentWorkspaceId, promptOptions, llmSettings]);
+      const draft: GlobalChatDraft = {
+        displayText: payload?.displayText || nextQuestion,
+        question: nextQuestion,
+        templatePrompt: payload?.templatePrompt,
+        templateId: payload?.templateId,
+        scope: nextScope,
+        workspaceId: nextScope === 'my_notes' ? currentWorkspaceId || null : null,
+        filters,
+      };
 
-  const handleInputChange = (value: string) => {
-    setInput(value);
-    if (!inputRef.current) return;
-    inputRef.current.style.height = 'auto';
-    inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 140)}px`;
-  };
+      sessionStorage.setItem(GLOBAL_CHAT_DRAFT_KEY, JSON.stringify(draft));
+      setInput('');
+      router.push('/chat/new');
+    },
+    [currentWorkspaceId, filters, input, isLaunching, router, scope]
+  );
 
   return (
-    <div className="flex h-full flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-[#E3D9CE]/50 px-6 py-4 sm:px-8">
-        <h1 className="font-song text-lg font-semibold text-[#3A2E25] pl-10 md:pl-0">AI 对话</h1>
-        <div className="flex items-center rounded-lg border border-[#D8CEC4] bg-white p-0.5 text-[11px]">
-          <button
-            onClick={() => setScope('workspace')}
-            className={`rounded-md px-2.5 py-1 transition-all ${
-              scope === 'workspace' ? 'bg-[#4A3C31] text-white' : 'text-[#8C7A6B] hover:text-[#5C4D42]'
-            }`}
-          >
-            当前工作区
-          </button>
-          <button
-            onClick={() => setScope('all')}
-            className={`rounded-md px-2.5 py-1 transition-all ${
-              scope === 'all' ? 'bg-[#4A3C31] text-white' : 'text-[#8C7A6B] hover:text-[#5C4D42]'
-            }`}
-          >
-            全部
-          </button>
-        </div>
-      </header>
-
-      {/* Messages */}
-      <div
-        ref={scrollRef}
-        className={`flex-1 px-6 py-6 sm:px-8 ${
-          messages.length === 0 ? 'overflow-hidden' : 'space-y-5 overflow-y-auto pb-36'
-        }`}
-      >
-        {messages.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center text-[#A69B8F]">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-[20px] border border-amber-100/50 bg-amber-50">
-              <Bot size={24} className="text-amber-500" />
+    <div className="min-h-full bg-[#F6F2EB]">
+      <div className="mx-auto flex max-w-[1100px] flex-col gap-10 px-6 pb-12 pt-10 sm:px-8 lg:px-10">
+        <section className="rounded-[36px] border border-[#DED4C9] bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.92),_rgba(248,243,236,0.98)_58%,_rgba(239,231,221,1))] px-6 py-8 shadow-[0_24px_80px_rgba(58,46,37,0.08)] sm:px-8 sm:py-10">
+          <div className="mx-auto max-w-[760px]">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-[#A08C79]">
+              <Sparkles size={12} />
+              Piedras Chat
             </div>
-            <p className="font-song mb-1 text-[17px] font-semibold text-[#3A2E25]">知识库问答</p>
-            <p className="max-w-[280px] text-center text-[13px] leading-6 text-[#A69B8F]">
-              跨会议提问，快速召回历史结论与线索。
+            <h1 className="mt-5 font-song text-[38px] leading-tight text-[#3A2E25] sm:text-[52px]">
+              Ask anything
+            </h1>
+            <p className="mt-3 max-w-[560px] text-[15px] leading-7 text-[#7C6B5C]">
+              直接问会议、笔记和行动项。支持 recipes、一键模板和跨会议检索。
             </p>
-          </div>
-        )}
 
-        {messages.map((msg) => (
-          <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            {msg.role === 'assistant' && (
-              <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 border border-amber-100/50">
-                <Bot size={16} className="text-amber-500" />
-              </div>
-            )}
-            <div
-              className={`max-w-[85%] rounded-2xl px-5 py-3.5 text-[15px] leading-relaxed shadow-sm ${
-                msg.role === 'user'
-                  ? 'bg-[#4A3C31] text-white rounded-tr-sm'
-                  : 'bg-white text-[#3A2E25] border border-[#E3D9CE]/50 rounded-tl-sm'
-              }`}
-            >
-              <div className="whitespace-pre-wrap">{msg.content}</div>
-              {msg.role === 'assistant' && !msg.content && isLoading && (
-                <div className="flex items-center gap-2 text-amber-500">
-                  <Loader2 size={16} className="animate-spin" />
-                  <span className="text-sm">思考中...</span>
-                </div>
-              )}
+            <div className="mt-8">
+              <GlobalChatComposer
+                input={input}
+                onInputChange={setInput}
+                onSubmit={handleLaunch}
+                scope={scope}
+                onScopeChange={setScope}
+                filters={filters}
+                onFiltersChange={setFilters}
+                templates={templates}
+                folders={folders}
+                currentWorkspaceName={currentWorkspaceName}
+                loading={isLaunching}
+                placeholder="问昨天聊了什么、哪些决定还没落地，或者输入 / 调用模板"
+              />
             </div>
-            {msg.role === 'user' && (
-              <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F7F3EE] border border-[#E3D9CE]/50">
-                <User size={16} className="text-[#8C7A6B]" />
-              </div>
-            )}
           </div>
-        ))}
-      </div>
+        </section>
 
-      {/* Input */}
-      <div className="border-t border-[#E3D9CE]/50 bg-[#F9F9F8] px-6 py-4 sm:px-8">
-        <div className="mx-auto flex max-w-3xl items-end gap-3">
-          <div className="flex flex-1 items-end rounded-2xl border border-[#D8CEC4] bg-white p-2 shadow-sm">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => handleInputChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="输入跨会议问题..."
-              disabled={isLoading}
-              rows={1}
-              style={{ minHeight: '52px', maxHeight: '140px' }}
-              className="flex-1 resize-none bg-transparent px-3 py-3 text-[15px] text-[#3A2E25] placeholder:text-[#A69B8F] focus:outline-none disabled:opacity-50"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || isLoading}
-              className={`mb-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-all ${
-                input.trim() && !isLoading
-                  ? 'bg-[#4A3C31] text-white hover:bg-[#3A2E25] shadow-sm'
-                  : 'bg-[#F7F3EE] text-[#A69B8F]'
-              }`}
-            >
-              {isLoading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="ml-0.5" />}
-            </button>
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+          <div className="rounded-[30px] border border-[#DED4C9] bg-white/85 p-6 shadow-[0_18px_48px_rgba(58,46,37,0.08)]">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="font-song text-[24px] text-[#3A2E25]">Recipes</h2>
+                <p className="mt-1 text-sm text-[#8C7A6B]">常见问题一键开聊，减少空白输入成本。</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInput('/')}
+                className="inline-flex items-center gap-1 rounded-full border border-[#D8CEC4] bg-[#FBF8F4] px-3 py-2 text-sm text-[#6B5C50] transition-colors hover:bg-white"
+              >
+                See all
+                <ArrowRight size={14} />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {GLOBAL_CHAT_RECIPES.map((recipe) => (
+                <button
+                  key={recipe.id}
+                  type="button"
+                  onClick={() =>
+                    void handleLaunch({
+                      displayText: recipe.title,
+                      question: recipe.prompt,
+                      nextScope: recipe.scope,
+                    })
+                  }
+                  className="group rounded-[24px] border border-[#E9E1D7] bg-[#FCFAF7] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[#D8CEC4] hover:shadow-[0_16px_32px_rgba(58,46,37,0.08)]"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`h-10 w-2 rounded-full ${
+                        recipe.accent === 'lime'
+                          ? 'bg-lime-400'
+                          : recipe.accent === 'sky'
+                            ? 'bg-sky-400'
+                            : recipe.accent === 'violet'
+                              ? 'bg-violet-400'
+                              : 'bg-amber-400'
+                      }`}
+                    />
+                    <div className="min-w-0">
+                      <div className="text-[15px] font-semibold text-[#3A2E25]">{recipe.title}</div>
+                      <div className="mt-1 text-[13px] leading-6 text-[#8C7A6B]">
+                        {recipe.description}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+
+          <div className="rounded-[30px] border border-[#DED4C9] bg-white/85 p-6 shadow-[0_18px_48px_rgba(58,46,37,0.08)]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="font-song text-[24px] text-[#3A2E25]">Recent Chats</h2>
+                <p className="mt-1 text-sm text-[#8C7A6B]">继续最近的问题，不用重新描述上下文。</p>
+              </div>
+              <MessageSquareText size={18} className="text-[#B9A999]" />
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {sessions.map((session) => (
+                <button
+                  key={session.id}
+                  type="button"
+                  onClick={() => router.push(`/chat/${session.id}`)}
+                  className="w-full rounded-[22px] border border-[#E9E1D7] bg-[#FCFAF7] px-4 py-4 text-left transition-all hover:border-[#D8CEC4] hover:bg-white"
+                >
+                  <div className="line-clamp-1 text-[15px] font-semibold text-[#3A2E25]">
+                    {session.title}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-[#8C7A6B]">
+                    <span className="rounded-full bg-[#F1EBE3] px-2.5 py-1">
+                      {scopeLabel(session.scope)}
+                    </span>
+                    {session.workspace ? (
+                      <span className="rounded-full bg-[#F7F3EE] px-2.5 py-1">
+                        {session.workspace.name}
+                      </span>
+                    ) : null}
+                    <span className="inline-flex items-center gap-1">
+                      <Clock3 size={12} />
+                      {formatRelativeTime(session.updatedAt)}
+                    </span>
+                  </div>
+                </button>
+              ))}
+
+              {!isBooting && sessions.length === 0 ? (
+                <div className="rounded-[24px] border border-dashed border-[#DDD2C7] bg-[#FCFAF7] px-4 py-8 text-center text-sm text-[#9A8877]">
+                  还没有历史对话。先从上方输入一个问题，或直接点 recipe 开始。
+                </div>
+              ) : null}
+
+              {isBooting ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((idx) => (
+                    <div
+                      key={idx}
+                      className="h-[84px] animate-pulse rounded-[22px] bg-[#F4EEE7]"
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </section>
       </div>
     </div>
   );

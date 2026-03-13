@@ -86,7 +86,7 @@ function buildNoResultMessage(filters: GlobalChatFilters): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { question, chatHistory, filters, promptOptions, llmRuntimeConfig } =
+    const { question, chatHistory, filters, promptOptions, llmRuntimeConfig, templatePrompt } =
       await req.json();
     const q = (question || '').trim();
     if (!q) {
@@ -120,6 +120,9 @@ export async function POST(req: NextRequest) {
         role: 'assistant',
         content: '我已读取这些历史会议上下文，请继续提问。',
       },
+      ...(templatePrompt
+        ? [{ role: 'system' as const, content: `当前任务模板指令：${String(templatePrompt).trim()}` }]
+        : []),
       ...(chatHistory || []).map((m: { role: string; content: string }) => ({
         role: m.role,
         content: m.content,
