@@ -13,6 +13,7 @@ import NoteEditor from '@/components/NoteEditor';
 import FloatingBottomBar from '@/components/FloatingBottomBar';
 import FloatingTranscript from '@/components/FloatingTranscript';
 import FloatingChat from '@/components/FloatingChat';
+import FloatingKnowledgeBase from '@/components/FloatingKnowledgeBase';
 import EnhancedNotes from '@/components/EnhancedNotes';
 import { useMeetingStore } from '@/lib/store';
 import { generateMeetingTitle } from '@/lib/llm';
@@ -41,6 +42,7 @@ export default function MeetingPage() {
 
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isKnowledgeBaseOpen, setIsKnowledgeBaseOpen] = useState(false);
 
   // Load meeting from URL param
   useEffect(() => {
@@ -194,15 +196,30 @@ export default function MeetingPage() {
         onClose={() => setIsChatOpen(false)}
       />
 
+      <FloatingKnowledgeBase
+        isOpen={isKnowledgeBaseOpen}
+        onClose={() => setIsKnowledgeBaseOpen(false)}
+      />
+
       <FloatingBottomBar
         onToggleTranscript={() => setIsTranscriptOpen(!isTranscriptOpen)}
         isTranscriptOpen={isTranscriptOpen}
         onToggleChat={() => {
-          setIsChatOpen(!isChatOpen);
+          const next = !isChatOpen;
+          setIsChatOpen(next);
+          if (next) {
+            setIsKnowledgeBaseOpen(false);
+          }
         }}
         isChatOpen={isChatOpen}
-        onToggleKnowledgeBase={() => {}}
-        isKnowledgeBaseOpen={false}
+        onToggleKnowledgeBase={() => {
+          const next = !isKnowledgeBaseOpen;
+          setIsKnowledgeBaseOpen(next);
+          if (next) {
+            setIsChatOpen(false);
+          }
+        }}
+        isKnowledgeBaseOpen={isKnowledgeBaseOpen}
       />
     </div>
   );

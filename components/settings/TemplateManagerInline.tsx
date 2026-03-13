@@ -55,6 +55,7 @@ export default function TemplateManagerInline() {
   useEffect(() => { void loadTemplates(); }, []);
 
   const selected = templates.find((t) => t.id === selectedId);
+  const isReadOnly = Boolean(selected?.isSystem && !isCreating);
 
   const handleSelect = (t: Template) => {
     setSelectedId(t.id);
@@ -71,11 +72,14 @@ export default function TemplateManagerInline() {
   };
 
   const handleSave = async () => {
+    if (isReadOnly) return;
+
     setIsBusy(true);
     setError('');
     try {
-      const method = isCreating ? 'POST' : 'PUT';
-      const url = isCreating ? '/api/templates' : `/api/templates/${selectedId}`;
+      const isUpdate = Boolean(selectedId && selected && !selected.isSystem && !isCreating);
+      const method = isUpdate ? 'PUT' : 'POST';
+      const url = isUpdate ? `/api/templates/${selectedId}` : '/api/templates';
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -171,6 +175,7 @@ export default function TemplateManagerInline() {
                 <input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  disabled={isBusy || isReadOnly}
                   className="w-full rounded-xl border border-[#D8CEC4] bg-white px-3 py-2 text-sm text-[#3A2E25] focus:outline-none focus:ring-1 focus:ring-[#D8CEC4]"
                 />
               </label>
@@ -179,6 +184,7 @@ export default function TemplateManagerInline() {
                 <input
                   value={form.command}
                   onChange={(e) => setForm({ ...form, command: e.target.value })}
+                  disabled={isBusy || isReadOnly}
                   className="w-full rounded-xl border border-[#D8CEC4] bg-white px-3 py-2 text-sm text-[#3A2E25] focus:outline-none focus:ring-1 focus:ring-[#D8CEC4]"
                 />
               </label>
@@ -187,6 +193,7 @@ export default function TemplateManagerInline() {
                 <input
                   value={form.icon}
                   onChange={(e) => setForm({ ...form, icon: e.target.value })}
+                  disabled={isBusy || isReadOnly}
                   className="w-full rounded-xl border border-[#D8CEC4] bg-white px-3 py-2 text-sm text-[#3A2E25] focus:outline-none focus:ring-1 focus:ring-[#D8CEC4]"
                 />
               </label>
@@ -195,6 +202,7 @@ export default function TemplateManagerInline() {
                 <select
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  disabled={isBusy || isReadOnly}
                   className="w-full rounded-xl border border-[#D8CEC4] bg-white px-3 py-2 text-sm text-[#3A2E25] focus:outline-none focus:ring-1 focus:ring-[#D8CEC4]"
                 >
                   {TEMPLATE_CATEGORIES.map((c) => (
@@ -208,6 +216,7 @@ export default function TemplateManagerInline() {
               <input
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
+                disabled={isBusy || isReadOnly}
                 className="w-full rounded-xl border border-[#D8CEC4] bg-white px-3 py-2 text-sm text-[#3A2E25] focus:outline-none focus:ring-1 focus:ring-[#D8CEC4]"
               />
             </label>
@@ -217,15 +226,21 @@ export default function TemplateManagerInline() {
                 value={form.prompt}
                 onChange={(e) => setForm({ ...form, prompt: e.target.value })}
                 rows={6}
+                disabled={isBusy || isReadOnly}
                 className="w-full resize-y rounded-xl border border-[#D8CEC4] bg-white px-3 py-2 text-sm text-[#3A2E25] focus:outline-none focus:ring-1 focus:ring-[#D8CEC4]"
                 style={{ minHeight: '160px' }}
               />
             </label>
             {error && <p className="text-xs text-red-500">{error}</p>}
+            {isReadOnly && (
+              <p className="rounded-xl border border-[#E3D9CE] bg-[#FCFAF8] px-3 py-2 text-xs text-[#8C7A6B]">
+                系统模板只读，如需修改请点击左侧“新建模板”后复制一份再编辑。
+              </p>
+            )}
             <div className="flex items-center gap-2">
               <button
                 onClick={handleSave}
-                disabled={isBusy}
+                disabled={isBusy || isReadOnly}
                 className="rounded-xl bg-[#4A3C31] px-4 py-2 text-sm font-medium text-white hover:bg-[#3A2E25] disabled:opacity-50"
               >
                 {isBusy ? '保存中...' : '保存'}

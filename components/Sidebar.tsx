@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Home,
   MessageSquare,
@@ -14,7 +14,6 @@ import {
   X,
   ChevronDown,
   ChevronRight,
-  FolderClosed,
   Menu,
 } from 'lucide-react';
 import PiedrasMark from '@/components/PiedrasMark';
@@ -24,6 +23,7 @@ const PRESET_COLORS = ['#94a3b8', '#f87171', '#fb923c', '#fbbf24', '#4ade80', '#
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const {
     workspaces,
     currentWorkspaceId,
@@ -45,7 +45,6 @@ export default function Sidebar() {
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState('#94a3b8');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
-  const sidebarRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     void loadWorkspaces();
@@ -58,17 +57,41 @@ export default function Sidebar() {
     }
   }, [currentWorkspaceId, loadFolders, loadMeetingList]);
 
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
-
   const handleSwitch = async (id: string) => {
     if (id === currentWorkspaceId) return;
+
+    const state = useMeetingStore.getState();
+    const isMeetingRoute = pathname.startsWith('/meeting/');
+    const hasDraft =
+      isMeetingRoute &&
+      (state.segments.length > 0 ||
+        state.userNotes.trim().length > 0 ||
+        state.enhancedNotes.trim().length > 0 ||
+        state.chatMessages.length > 0);
+
+    if (state.status === 'recording') {
+      alert('请先结束当前录音，再切换工作区');
+      return;
+    }
+
+    if (hasDraft) {
+      const saved = await state.saveMeeting();
+      if (!saved) {
+        alert('当前会议保存失败，请稍后重试后再切换工作区');
+        return;
+      }
+    }
+
     setCurrentWorkspaceId(id);
     reset();
     setEditingId(null);
     setIsCreating(false);
+    setMobileOpen(false);
+
+    if (isMeetingRoute) {
+      router.push('/');
+    }
+
     await loadFolders();
     await loadMeetingList();
   };
@@ -132,6 +155,7 @@ export default function Sidebar() {
           <Link
             key={item.href}
             href={item.href}
+            onClick={() => setMobileOpen(false)}
             className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
               isActive(item.href)
                 ? 'bg-white text-[#3A2E25] shadow-sm border border-[#E3D9CE]/50'
@@ -179,33 +203,45 @@ export default function Sidebar() {
                   </button>
                 </div>
               ) : (
-                <button
-                  onClick={() => handleSwitch(ws.id)}
-                  className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm transition-all ${
+                <div
+                  className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all ${
                     ws.id === currentWorkspaceId
                       ? 'bg-white font-semibold text-[#3A2E25] shadow-sm border border-[#E3D9CE]/50'
                       : 'text-[#5C4D42] hover:bg-[#EFE9E2]'
                   }`}
                 >
-                  <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: ws.color }} />
-                  <span className="min-w-0 flex-1 truncate">{ws.name}</span>
-                  <span className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={() => handleSwitch(ws.id)}
+                    className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                  >
+                    <span
+                      className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: ws.color }}
+                    />
+                    <span className="min-w-0 flex-1 truncate">{ws.name}</span>
+                  </button>
+                  <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); setEditingId(ws.id); setEditName(ws.name); }}
                       className="rounded-md p-1 text-[#8C7A6B] hover:bg-[#EFE9E2] hover:text-[#5C4D42]"
+                      aria-label={`重命名工作区 ${ws.name}`}
                     >
                       <Pencil size={11} />
                     </button>
                     {workspaces.length > 1 && (
                       <button
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); handleDelete(ws.id); }}
                         className="rounded-md p-1 text-[#8C7A6B] hover:bg-red-50 hover:text-red-500"
+                        aria-label={`删除工作区 ${ws.name}`}
                       >
                         <Trash2 size={11} />
                       </button>
                     )}
-                  </span>
-                </button>
+                  </div>
+                </div>
               )}
             </div>
           ))}
@@ -284,6 +320,7 @@ export default function Sidebar() {
       <div className="border-t border-[#E3D9CE]/50 p-2">
         <Link
           href="/settings"
+          onClick={() => setMobileOpen(false)}
           className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
             isActive('/settings')
               ? 'bg-white text-[#3A2E25] shadow-sm border border-[#E3D9CE]/50'
@@ -308,7 +345,7 @@ export default function Sidebar() {
       </button>
 
       {/* Desktop sidebar */}
-      <aside ref={sidebarRef} className="hidden w-[200px] shrink-0 md:block">
+      <aside className="hidden w-[200px] shrink-0 md:block">
         {sidebarContent}
       </aside>
 

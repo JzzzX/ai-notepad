@@ -27,7 +27,6 @@ export default function HomePage() {
     isLoadingList,
     folders,
     currentWorkspaceId,
-    loadMeetingList,
     promptOptions,
     llmSettings,
   } = useMeetingStore();

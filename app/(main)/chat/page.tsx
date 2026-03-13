@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Send,
   Bot,
@@ -14,7 +13,6 @@ import { v4 as uuidv4 } from 'uuid';
 import type { ChatMessage } from '@/lib/types';
 
 export default function ChatPage() {
-  const router = useRouter();
   const {
     currentWorkspaceId,
     promptOptions,

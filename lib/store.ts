@@ -105,7 +105,7 @@ interface MeetingStore {
   reset: () => void;
 
   // 持久化 Actions
-  saveMeeting: (options?: { allowEmpty?: boolean }) => Promise<void>;
+  saveMeeting: (options?: { allowEmpty?: boolean }) => Promise<boolean>;
   loadMeeting: (id: string) => Promise<void>;
   loadMeetingList: (filters?: MeetingListFilters) => Promise<void>;
   deleteMeeting: (id: string) => Promise<void>;
@@ -305,11 +305,11 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
       !state.userNotes &&
       !state.enhancedNotes
     ) {
-      return; // 没有内容不保存
+      return true; // 没有内容不保存
     }
     set({ isSaving: true });
     try {
-      await fetch('/api/meetings', {
+      const res = await fetch('/api/meetings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -327,9 +327,14 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
           chatMessages: state.chatMessages,
         }),
       });
+      if (!res.ok) {
+        throw new Error(`保存会议失败：${res.status}`);
+      }
       set({ isPersistedMeeting: true });
+      return true;
     } catch (e) {
       console.error('保存会议失败:', e);
+      return false;
     } finally {
       set({ isSaving: false });
     }
