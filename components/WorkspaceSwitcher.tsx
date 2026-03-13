@@ -60,12 +60,14 @@ export default function WorkspaceSwitcher() {
   const handleCreate = async () => {
     const name = newName.trim();
     if (!name) return;
-    const ws = await createWorkspace({ name, color: newColor });
-    if (ws) {
+    try {
+      const ws = await createWorkspace({ name, color: newColor });
       setIsCreating(false);
       setNewName('');
       setNewColor('#94a3b8');
       await handleSwitch(ws.id);
+    } catch (error) {
+      console.error('创建工作区失败:', error);
     }
   };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -17,9 +17,8 @@ import {
   Menu,
 } from 'lucide-react';
 import PiedrasMark from '@/components/PiedrasMark';
+import WorkspaceCreateModal from '@/components/WorkspaceCreateModal';
 import { useMeetingStore } from '@/lib/store';
-
-const PRESET_COLORS = ['#94a3b8', '#f87171', '#fb923c', '#fbbf24', '#4ade80', '#38bdf8', '#a78bfa', '#f472b6'];
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -42,11 +41,11 @@ export default function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newColor, setNewColor] = useState('#94a3b8');
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [highlightedWorkspaceId, setHighlightedWorkspaceId] = useState<string | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [dragOverWorkspaceId, setDragOverWorkspaceId] = useState<string | null>(null);
+  const workspaceItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     void loadWorkspaces();
@@ -58,6 +57,18 @@ export default function Sidebar() {
       void loadMeetingList();
     }
   }, [currentWorkspaceId, loadFolders, loadMeetingList]);
+
+  useEffect(() => {
+    if (!highlightedWorkspaceId) return;
+    const target = workspaceItemRefs.current[highlightedWorkspaceId];
+    target?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+    const timer = window.setTimeout(() => {
+      setHighlightedWorkspaceId((current) => (current === highlightedWorkspaceId ? null : current));
+    }, 1800);
+
+    return () => window.clearTimeout(timer);
+  }, [highlightedWorkspaceId, workspaces]);
 
   const handleSwitch = async (id: string) => {
     if (id === currentWorkspaceId) return;
@@ -87,7 +98,7 @@ export default function Sidebar() {
     setCurrentWorkspaceId(id);
     reset();
     setEditingId(null);
-    setIsCreating(false);
+    setIsCreateModalOpen(false);
     setMobileOpen(false);
 
     if (isMeetingRoute) {
@@ -98,16 +109,10 @@ export default function Sidebar() {
     await loadMeetingList();
   };
 
-  const handleCreate = async () => {
-    const name = newName.trim();
-    if (!name) return;
-    const ws = await createWorkspace({ name, color: newColor });
-    if (ws) {
-      setIsCreating(false);
-      setNewName('');
-      setNewColor('#94a3b8');
-      await handleSwitch(ws.id);
-    }
+  const handleCreate = async (input: { name: string; description: string; color: string }) => {
+    const ws = await createWorkspace(input);
+    setHighlightedWorkspaceId(ws.id);
+    await handleSwitch(ws.id);
   };
 
   const handleRename = async (id: string) => {
@@ -184,7 +189,8 @@ export default function Sidebar() {
         <div className="mb-1.5 flex items-center justify-between px-3">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-[#A69B8F]">工作区</span>
           <button
-            onClick={() => setIsCreating(true)}
+            onClick={() => setIsCreateModalOpen(true)}
+            aria-label="创建工作区"
             className="rounded-md p-1 text-[#A69B8F] hover:bg-[#EFE9E2] hover:text-[#5C4D42]"
           >
             <Plus size={13} />
@@ -193,7 +199,13 @@ export default function Sidebar() {
 
         <div className="space-y-0.5">
           {workspaces.map((ws) => (
-            <div key={ws.id} className="group relative">
+            <div
+              key={ws.id}
+              ref={(node) => {
+                workspaceItemRefs.current[ws.id] = node;
+              }}
+              className="group relative"
+            >
               {editingId === ws.id ? (
                 <div className="flex items-center gap-1.5 rounded-xl bg-white px-3 py-2">
                   <input
@@ -232,6 +244,10 @@ export default function Sidebar() {
                     ws.id === currentWorkspaceId
                       ? 'bg-white font-semibold text-[#3A2E25] shadow-sm border border-[#E3D9CE]/50'
                       : 'text-[#5C4D42] hover:bg-[#EFE9E2]'
+                  } ${
+                    highlightedWorkspaceId === ws.id
+                      ? 'ring-2 ring-[#E9D7B8] ring-offset-2 ring-offset-[#F7F3EE] shadow-[0_12px_24px_rgba(191,156,100,0.18)]'
+                      : ''
                   } ${
                     dragOverWorkspaceId === ws.id
                       ? 'ring-2 ring-sky-300 ring-offset-1 ring-offset-[#F7F3EE]'
@@ -274,46 +290,6 @@ export default function Sidebar() {
             </div>
           ))}
         </div>
-
-        {isCreating && (
-          <div className="mt-1.5 space-y-2 rounded-xl bg-white p-3 border border-[#E3D9CE]/50">
-            <input
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate();
-                if (e.key === 'Escape') { setIsCreating(false); setNewName(''); }
-              }}
-              placeholder="工作区名称"
-              className="w-full rounded-lg border border-[#D8CEC4] bg-white px-3 py-1.5 text-sm text-[#3A2E25] placeholder:text-[#A69B8F] focus:outline-none focus:ring-1 focus:ring-[#D8CEC4]"
-            />
-            <div className="flex items-center gap-1.5">
-              {PRESET_COLORS.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setNewColor(c)}
-                  className={`h-5 w-5 rounded-full transition-all ${
-                    newColor === c ? 'ring-2 ring-[#5C4D42] ring-offset-1' : 'hover:scale-110'
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-            <div className="flex justify-end gap-1.5">
-              <button onClick={() => { setIsCreating(false); setNewName(''); }} className="rounded-lg px-3 py-1 text-xs text-[#8C7A6B] hover:bg-[#EFE9E2]">
-                取消
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={!newName.trim()}
-                className="rounded-lg bg-[#4A3C31] px-3 py-1 text-xs font-medium text-white hover:bg-[#3A2E25] disabled:opacity-50"
-              >
-                创建
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Folders */}
@@ -389,6 +365,12 @@ export default function Sidebar() {
           </aside>
         </div>
       )}
+
+      <WorkspaceCreateModal
+        open={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreate}
+      />
     </>
   );
 }

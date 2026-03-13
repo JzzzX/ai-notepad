@@ -125,7 +125,7 @@ interface MeetingStore {
 
   // Workspace Actions
   loadWorkspaces: () => Promise<void>;
-  createWorkspace: (input: { name: string; description?: string; color?: string }) => Promise<Workspace | null>;
+  createWorkspace: (input: { name: string; description?: string; color?: string }) => Promise<Workspace>;
   updateWorkspace: (id: string, input: { name?: string; description?: string; color?: string }) => Promise<void>;
   deleteWorkspace: (id: string) => Promise<void>;
   setCurrentWorkspaceId: (id: string | null) => void;
@@ -580,25 +580,22 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
   },
 
   createWorkspace: async (input) => {
-    try {
-      const res = await fetch('/api/workspaces', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error((data as { error?: string }).error || '创建工作区失败');
-      }
-      const workspace = data as Workspace;
-      set((state) => ({
-        workspaces: [...state.workspaces, workspace].sort((a, b) => a.sortOrder - b.sortOrder),
-      }));
-      return workspace;
-    } catch (e) {
-      console.error('创建工作区失败:', e);
-      return null;
+    const res = await fetch('/api/workspaces', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error((data as { error?: string }).error || '创建工作区失败');
+      console.error('创建工作区失败:', error);
+      throw error;
     }
+    const workspace = data as Workspace;
+    set((state) => ({
+      workspaces: [...state.workspaces, workspace].sort((a, b) => a.sortOrder - b.sortOrder),
+    }));
+    return workspace;
   },
 
   updateWorkspace: async (id, input) => {
