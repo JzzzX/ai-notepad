@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
 export async function GET() {
-  const workspaces = await prisma.workspace.findMany({
-    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-  });
-
-  return NextResponse.json(workspaces);
+  try {
+    const workspaces = await prisma.workspace.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+    return NextResponse.json(workspaces);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '加载工作区失败';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {

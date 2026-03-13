@@ -57,11 +57,11 @@ export default function FloatingBottomBar({
         <div className="flex items-center pl-2 text-gray-400">
           <MessageSquare size={16} />
         </div>
-        <input 
-          type="text" 
-          placeholder="Ask AI anything about the notes..." 
+        <input
+          type="text"
+          placeholder="向 AI 提问..."
           className="w-full bg-transparent px-2 py-2 text-sm text-gray-800 outline-none placeholder:text-gray-400/80"
-          onFocus={onToggleChat}
+          onFocus={() => { if (!isChatOpen) onToggleChat(); }}
         />
         <button 
           onClick={onToggleChat}
