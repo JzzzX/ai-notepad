@@ -160,7 +160,7 @@ export default function Sidebar() {
     <div className="flex h-full flex-col bg-[#F7F3EE] border-r border-[#E3D9CE]">
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-4 py-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#2B2420] text-[#F5EEE6] shadow-sm">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#2B2420] text-[#F59E0B] shadow-sm">
           <PiedrasMark className="h-5 w-5" />
         </div>
         <span className="font-song text-base font-semibold text-[#3A2E25]">Piedras</span>
