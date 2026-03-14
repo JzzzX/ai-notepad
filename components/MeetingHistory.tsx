@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   CalendarRange,
   ChevronDown,
@@ -31,6 +32,7 @@ const FOLDER_COLORS = ['#94a3b8', '#38bdf8', '#22c55e', '#f59e0b', '#f97316', '#
 type FolderFilterValue = 'all' | 'ungrouped' | string;
 
 export default function MeetingHistory({ onSelectMeeting }: MeetingHistoryProps) {
+  const router = useRouter();
   const {
     meetingList,
     isLoadingList,
@@ -38,7 +40,6 @@ export default function MeetingHistory({ onSelectMeeting }: MeetingHistoryProps)
     folders,
     isLoadingFolders,
     loadMeetingList,
-    loadMeeting,
     deleteMeeting,
     loadFolders,
     createFolder,
@@ -66,6 +67,7 @@ export default function MeetingHistory({ onSelectMeeting }: MeetingHistoryProps)
         query: searchQuery,
         dateFrom,
         dateTo,
+        workspaceScope: 'current',
         folderId:
           folderFilter === 'all'
             ? undefined
@@ -129,8 +131,18 @@ export default function MeetingHistory({ onSelectMeeting }: MeetingHistoryProps)
   };
 
   const handleSelectMeeting = async (id: string) => {
-    await loadMeeting(id);
+    router.push(`/meeting/${id}`);
     onSelectMeeting?.();
+  };
+
+  const buildNotePreview = (meeting: MeetingListItem) => {
+    const enhanced = meeting.enhancedNotes?.replace(/\s+/g, ' ').trim();
+    if (enhanced) return enhanced;
+
+    const userNotes = meeting.userNotes?.replace(/\s+/g, ' ').trim();
+    if (userNotes) return userNotes;
+
+    return '还没有笔记内容，打开会议后可以查看完整转写并补充记录。';
   };
 
   const handleCreateFolder = async () => {
@@ -163,6 +175,7 @@ export default function MeetingHistory({ onSelectMeeting }: MeetingHistoryProps)
       query: searchQuery,
       dateFrom,
       dateTo,
+      workspaceScope: 'current',
       folderId:
         folderFilter === 'all'
           ? undefined
@@ -229,6 +242,9 @@ export default function MeetingHistory({ onSelectMeeting }: MeetingHistoryProps)
               </>
             )}
           </div>
+          <p className="mt-2 line-clamp-2 text-[13px] leading-6 text-stone-500">
+            {buildNotePreview(meeting)}
+          </p>
         </div>
 
         <button

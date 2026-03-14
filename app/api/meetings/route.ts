@@ -67,6 +67,8 @@ export async function GET(req: NextRequest) {
       audioMimeType: true,
       audioDuration: true,
       audioUpdatedAt: true,
+      userNotes: true,
+      enhancedNotes: true,
       createdAt: true,
       folderId: true,
       workspaceId: true,

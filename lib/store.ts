@@ -24,6 +24,8 @@ export interface MeetingListItem {
   createdAt: string;
   folderId: string | null;
   workspaceId: string;
+  userNotes: string;
+  enhancedNotes: string;
   folder?: Folder | null;
   workspace?: Pick<Workspace, 'id' | 'name' | 'icon' | 'color'> | null;
   _count: { segments: number; chatMessages: number };

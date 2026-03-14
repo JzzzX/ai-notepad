@@ -4,15 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard,
+  Home,
   MessageSquare,
   Settings,
   Plus,
   Pencil,
   Trash2,
   X,
-  ChevronDown,
-  ChevronRight,
   Menu,
 } from 'lucide-react';
 import PiedrasMark from '@/components/PiedrasMark';
@@ -30,7 +28,6 @@ export default function Sidebar() {
     createWorkspace,
     updateWorkspace,
     deleteWorkspace,
-    folders,
     loadFolders,
     loadMeetingList,
     loadWorkspaces,
@@ -44,7 +41,6 @@ export default function Sidebar() {
     workspaceId?: string;
   } | null>(null);
   const [highlightedWorkspaceId, setHighlightedWorkspaceId] = useState<string | null>(null);
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [dragOverWorkspaceId, setDragOverWorkspaceId] = useState<string | null>(null);
   const workspaceItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const editingWorkspace =
@@ -76,7 +72,13 @@ export default function Sidebar() {
   }, [highlightedWorkspaceId, workspaces]);
 
   const handleSwitch = async (id: string) => {
-    if (id === currentWorkspaceId) return;
+    if (id === currentWorkspaceId) {
+      if (pathname !== `/workspace/${id}`) {
+        router.push(`/workspace/${id}`);
+      }
+      setMobileOpen(false);
+      return;
+    }
 
     const state = useMeetingStore.getState();
     const isMeetingRoute = pathname.startsWith('/meeting/');
@@ -105,8 +107,8 @@ export default function Sidebar() {
     setWorkspaceModalState(null);
     setMobileOpen(false);
 
-    if (isMeetingRoute) {
-      router.push('/');
+    if (pathname !== `/workspace/${id}`) {
+      router.push(`/workspace/${id}`);
     }
 
     await loadFolders();
@@ -132,9 +134,19 @@ export default function Sidebar() {
 
   const handleDelete = async (id: string) => {
     if (workspaces.length <= 1) return;
+    const deletingCurrent = currentWorkspaceId === id;
     await deleteWorkspace(id);
     await loadFolders();
     await loadMeetingList();
+
+    if (deletingCurrent) {
+      const nextWorkspaceId = useMeetingStore.getState().currentWorkspaceId;
+      if (nextWorkspaceId) {
+        router.push(`/workspace/${nextWorkspaceId}`);
+      } else {
+        router.push('/');
+      }
+    }
   };
 
   const handleWorkspaceDrop = async (workspaceId: string, meetingId: string) => {
@@ -147,7 +159,7 @@ export default function Sidebar() {
   };
 
   const navItems = [
-    { href: '/', label: '工作台', icon: LayoutDashboard },
+    { href: '/', label: '首页', icon: Home },
     { href: '/chat', label: 'AI 对话', icon: MessageSquare },
   ];
 
@@ -281,31 +293,6 @@ export default function Sidebar() {
           ))}
         </div>
       </div>
-
-      {/* Folders */}
-      {folders.length > 0 && (
-        <div className="mt-4 px-2">
-          <div className="mb-1.5 px-3">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#A69B8F]">文件夹</span>
-          </div>
-          <div className="space-y-0.5">
-            {folders.map((folder) => {
-              const expanded = expandedFolders[folder.id] ?? false;
-              return (
-                <button
-                  key={folder.id}
-                  onClick={() => setExpandedFolders((prev) => ({ ...prev, [folder.id]: !expanded }))}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-[#5C4D42] hover:bg-[#EFE9E2]"
-                >
-                  {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: folder.color || '#d6d3d1' }} />
-                  <span className="truncate">{folder.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Spacer */}
       <div className="flex-1" />
