@@ -6,7 +6,7 @@ const LIST_URI = 'piedras://meetings/list';
 const DETAIL_TEMPLATE = 'piedras://meetings/{id}';
 const SEARCH_URI = 'piedras://search/meetings';
 const SEARCH_TEMPLATE =
-  'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}';
+  'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{collectionId}/{limit}';
 
 const meetingSummarySelect = {
   id: true,
@@ -17,8 +17,8 @@ const meetingSummarySelect = {
   updatedAt: true,
   userNotes: true,
   enhancedNotes: true,
-  folderId: true,
-  folder: {
+  collectionId: true,
+  collection: {
     select: {
       id: true,
       name: true,
@@ -90,8 +90,8 @@ function formatMeetingSummary(meeting: MeetingSummaryRecord) {
     date: meeting.date.toISOString(),
     status: meeting.status,
     duration: meeting.duration,
-    folderId: meeting.folderId,
-    folder: meeting.folder,
+    collectionId: meeting.collectionId,
+    collection: meeting.collection,
     segmentCount: meeting._count.segments,
     chatMessageCount: meeting._count.chatMessages,
     preview: clipText(previewSource),
@@ -142,7 +142,7 @@ function buildMeetingSearchWhere(filters: {
   query?: string | null;
   dateFrom?: string | null;
   dateTo?: string | null;
-  folderId?: string | null;
+  collectionId?: string | null;
 }): Prisma.MeetingWhereInput {
   const where: Prisma.MeetingWhereInput = {};
   const query = filters.query?.trim();
@@ -174,8 +174,8 @@ function buildMeetingSearchWhere(filters: {
     }
   }
 
-  if (filters.folderId) {
-    where.folderId = filters.folderId === '__ungrouped' ? null : filters.folderId;
+  if (filters.collectionId) {
+    where.collectionId = filters.collectionId === '__ungrouped' ? null : filters.collectionId;
   }
 
   return where;
@@ -195,7 +195,7 @@ async function getMeetingDetail(meetingId: string) {
   const meeting = await prisma.meeting.findUnique({
     where: { id: meetingId },
     include: {
-      folder: true,
+      collection: true,
       segments: { orderBy: { order: 'asc' } },
       chatMessages: { orderBy: { timestamp: 'asc' } },
     },
@@ -214,8 +214,8 @@ async function getMeetingDetail(meetingId: string) {
     date: meeting.date.toISOString(),
     status: meeting.status,
     duration: meeting.duration,
-    folderId: meeting.folderId,
-    folder: meeting.folder,
+    collectionId: meeting.collectionId,
+    collection: meeting.collection,
     userNotes: meeting.userNotes,
     enhancedNotes: meeting.enhancedNotes,
     speakers,
@@ -245,17 +245,17 @@ async function searchMeetings(filters: {
   query?: string;
   dateFrom?: string;
   dateTo?: string;
-  folderId?: string;
+  collectionId?: string;
   limit?: string;
 }) {
   const query = filters.query || '';
   const dateFrom = filters.dateFrom || '';
   const dateTo = filters.dateTo || '';
-  const folderId = filters.folderId || '';
+  const collectionId = filters.collectionId || '';
   const limit = parseLimit(filters.limit);
 
   const meetings = await prisma.meeting.findMany({
-    where: buildMeetingSearchWhere({ query, dateFrom, dateTo, folderId }),
+    where: buildMeetingSearchWhere({ query, dateFrom, dateTo, collectionId }),
     orderBy: { date: 'desc' },
     take: limit,
     select: meetingSummarySelect,
@@ -266,7 +266,7 @@ async function searchMeetings(filters: {
       query: query || '',
       dateFrom: dateFrom || '',
       dateTo: dateTo || '',
-      folderId: folderId || '',
+      collectionId: collectionId || '',
       limit,
     },
     total: meetings.length,
@@ -332,7 +332,7 @@ export function createMcpServer() {
       return jsonResource(uri.toString(), {
         type: 'meeting-search-help',
         template: SEARCH_TEMPLATE,
-        note: '占位符顺序为 query/dateFrom/dateTo/folderId/limit；缺省值请使用下划线 "_" 占位。',
+        note: '占位符顺序为 query/dateFrom/dateTo/collectionId/limit；缺省值请使用下划线 "_" 占位。',
         examples: [
           'piedras://search/meetings/预算/2026-02-01/2026-02-28/_/10',
           'piedras://search/meetings/_/_/_/__ungrouped/20',
@@ -349,7 +349,7 @@ export function createMcpServer() {
     }),
     {
       title: '会议搜索',
-      description: '按关键词、日期和文件夹搜索会议',
+      description: '按关键词、日期和 Collection 搜索会议',
       mimeType: 'application/json',
     },
     async (uri, variables) => {
@@ -357,7 +357,7 @@ export function createMcpServer() {
         query: decodeTemplateValue(variables.query),
         dateFrom: decodeTemplateValue(variables.dateFrom),
         dateTo: decodeTemplateValue(variables.dateTo),
-        folderId: decodeTemplateValue(variables.folderId),
+        collectionId: decodeTemplateValue(variables.collectionId),
         limit: decodeTemplateValue(variables.limit),
       });
       return jsonResource(uri.toString(), {

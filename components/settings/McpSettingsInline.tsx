@@ -106,13 +106,13 @@ export default function McpSettingsInline() {
           'piedras://meetings/list',
           'piedras://meetings/{id}',
           'piedras://search/meetings',
-          'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}',
+          'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{collectionId}/{limit}',
         ].join('\n')}
         onCopy={() => handleCopy('resources', [
           'piedras://meetings/list',
           'piedras://meetings/{id}',
           'piedras://search/meetings',
-          'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}',
+          'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{collectionId}/{limit}',
         ].join('\n'))}
         copied={copiedKey === 'resources'}
       />

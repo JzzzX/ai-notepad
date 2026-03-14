@@ -199,7 +199,7 @@ export default function McpConnectorPanel({
               'piedras://meetings/list',
               'piedras://meetings/{id}',
               'piedras://search/meetings',
-              'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}',
+              'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{collectionId}/{limit}',
             ].join('\n')}
             onCopy={() =>
               handleCopy(
@@ -208,7 +208,7 @@ export default function McpConnectorPanel({
                   'piedras://meetings/list',
                   'piedras://meetings/{id}',
                   'piedras://search/meetings',
-                  'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{folderId}/{limit}',
+                  'piedras://search/meetings/{query}/{dateFrom}/{dateTo}/{collectionId}/{limit}',
                 ].join('\n')
               )
             }

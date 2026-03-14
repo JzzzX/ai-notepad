@@ -81,9 +81,11 @@ export interface AsrVocabularySyncStatus {
   message: string;
 }
 
-export interface Folder {
+export interface Collection {
   id: string;
   name: string;
+  description: string;
+  icon: string;
   color: string;
   sortOrder: number;
   workspaceId?: string;
@@ -106,10 +108,9 @@ export interface Template {
 export type GlobalChatScope = 'my_notes' | 'all_meetings';
 
 export interface GlobalChatFilters {
-  titleKeyword?: string;
   dateFrom?: string;
   dateTo?: string;
-  folderId?: string;
+  collectionId?: string;
 }
 
 export interface GlobalChatSessionSummary {

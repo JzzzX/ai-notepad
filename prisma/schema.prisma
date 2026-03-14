@@ -17,7 +17,7 @@ model Workspace {
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   meetings              Meeting[]
-  folders               Folder[]
+  collections           Collection[]
   customVocabularyTerms CustomVocabularyTerm[]
   globalChatSessions    GlobalChatSession[]
 }
@@ -36,18 +36,20 @@ model Meeting {
   speakers      String   @default("{}")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  folderId      String?
+  collectionId  String? @map("folderId")
   workspaceId   String
 
   segments     TranscriptSegment[]
   chatMessages ChatMessage[]
-  folder       Folder?             @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  collection   Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
   workspace    Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
-model Folder {
+model Collection {
   id          String    @id @default(uuid())
   name        String
+  description String    @default("")
+  icon        String    @default("folder")
   color       String    @default("#94a3b8")
   sortOrder   Int       @default(0)
   createdAt   DateTime  @default(now())
@@ -56,6 +58,8 @@ model Folder {
 
   meetings  Meeting[]
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("Folder")
 }
 
 model TranscriptSegment {

@@ -67,14 +67,13 @@ function formatSources(sources: Array<{ ref: string; title: string; date: string
 
 function buildNoResultMessage(filters: GlobalChatFilters): string {
   const conditions: string[] = [];
-  if (filters.titleKeyword) conditions.push(`标题含“${filters.titleKeyword}”`);
   if (filters.dateFrom) conditions.push(`开始时间 >= ${filters.dateFrom}`);
   if (filters.dateTo) conditions.push(`结束时间 <= ${filters.dateTo}`);
-  if (filters.folderId) {
+  if (filters.collectionId) {
     conditions.push(
-      filters.folderId === '__ungrouped'
-        ? '仅未分组会议'
-        : `文件夹 = ${filters.folderId}`
+      filters.collectionId === '__ungrouped'
+        ? '仅未归类会议'
+        : `Collection = ${filters.collectionId}`
     );
   }
 

@@ -43,9 +43,9 @@ export default function ChatPanel({ onClose }: ChatPanelProps = {}) {
     promptOptions,
     llmSettings,
     status,
-    folders,
+    collections,
     addChatMessage,
-    loadFolders,
+    loadCollections,
     setIsChatLoading,
   } = useMeetingStore();
 
@@ -63,10 +63,9 @@ export default function ChatPanel({ onClose }: ChatPanelProps = {}) {
   const [showAISettings, setShowAISettings] = useState(false);
 
   const [showGlobalFilters, setShowGlobalFilters] = useState(false);
-  const [globalTitleFilter, setGlobalTitleFilter] = useState('');
   const [globalDateFrom, setGlobalDateFrom] = useState('');
   const [globalDateTo, setGlobalDateTo] = useState('');
-  const [globalFolderFilter, setGlobalFolderFilter] = useState('');
+  const [globalCollectionFilter, setGlobalCollectionFilter] = useState('');
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -101,8 +100,8 @@ export default function ChatPanel({ onClose }: ChatPanelProps = {}) {
   }, [loadTemplates]);
 
   useEffect(() => {
-    void loadFolders();
-  }, [loadFolders]);
+    void loadCollections();
+  }, [loadCollections]);
 
   const filteredTemplates = useMemo(() => {
     return filterTemplates(templates, templateFilter);
@@ -111,19 +110,15 @@ export default function ChatPanel({ onClose }: ChatPanelProps = {}) {
   const activeMessages = chatMode === 'global' ? globalMessages : chatMessages;
   const activeLoading = chatMode === 'global' ? isGlobalChatLoading : isChatLoading;
   const activeGlobalFilterCount = useMemo(
-    () =>
-      [globalTitleFilter, globalDateFrom, globalDateTo, globalFolderFilter].filter((value) =>
-        Boolean(value)
-      ).length,
-    [globalDateFrom, globalDateTo, globalFolderFilter, globalTitleFilter]
+    () => [globalDateFrom, globalDateTo, globalCollectionFilter].filter(Boolean).length,
+    [globalDateFrom, globalDateTo, globalCollectionFilter]
   );
   const hasActiveGlobalFilters = activeGlobalFilterCount > 0;
 
   const handleResetGlobalFilters = useCallback(() => {
-    setGlobalTitleFilter('');
     setGlobalDateFrom('');
     setGlobalDateTo('');
-    setGlobalFolderFilter('');
+    setGlobalCollectionFilter('');
   }, []);
 
   // 自动滚动
@@ -209,10 +204,9 @@ export default function ChatPanel({ onClose }: ChatPanelProps = {}) {
               globalMessages,
               question,
               {
-                titleKeyword: globalTitleFilter,
                 dateFrom: globalDateFrom,
                 dateTo: globalDateTo,
-                folderId: globalFolderFilter || undefined,
+                collectionId: globalCollectionFilter || undefined,
               },
               promptOptions,
               llmSettings
@@ -586,13 +580,6 @@ export default function ChatPanel({ onClose }: ChatPanelProps = {}) {
                 </div>
               </div>
 
-              <input
-                value={globalTitleFilter}
-                onChange={(e) => setGlobalTitleFilter(e.target.value)}
-                placeholder="标题关键词（可选）"
-                className="w-full rounded-xl border border-stone-200 bg-white/90 px-3 py-2.5 text-sm text-stone-700 placeholder:text-stone-400 focus:border-stone-400 focus:outline-none"
-              />
-
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="text-xs text-stone-500">
                   开始日期
@@ -615,23 +602,23 @@ export default function ChatPanel({ onClose }: ChatPanelProps = {}) {
               </div>
 
               <label className="block text-xs text-stone-500">
-                文件夹范围
+                Collection 范围
                 <select
-                  value={globalFolderFilter}
-                  onChange={(e) => setGlobalFolderFilter(e.target.value)}
+                  value={globalCollectionFilter}
+                  onChange={(e) => setGlobalCollectionFilter(e.target.value)}
                   className="mt-1.5 w-full rounded-xl border border-stone-200 bg-white/90 px-3 py-2.5 text-sm text-stone-700 focus:border-stone-400 focus:outline-none"
                 >
                   <option value="">全部会议</option>
-                  <option value="__ungrouped">未分组的会议</option>
-                  {folders.map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folder.name}
+                  <option value="__ungrouped">未归类的会议</option>
+                  {collections.map((collection) => (
+                    <option key={collection.id} value={collection.id}>
+                      {collection.name}
                     </option>
                   ))}
                 </select>
               </label>
 
-              <p className="text-[11px] text-stone-400">留空表示不过滤。</p>
+              <p className="text-[11px] text-stone-400">默认不限制 Collection，只按时间范围缩小检索。</p>
             </div>
           </div>
         </>

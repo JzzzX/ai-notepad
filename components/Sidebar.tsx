@@ -59,7 +59,7 @@ export default function Sidebar() {
     createWorkspace,
     updateWorkspace,
     deleteWorkspace,
-    loadFolders,
+    loadCollections,
     loadMeetingList,
     loadWorkspaces,
     updateMeetingWorkspace,
@@ -111,10 +111,10 @@ export default function Sidebar() {
 
   useEffect(() => {
     if (currentWorkspaceId) {
-      void loadFolders();
+      void loadCollections();
       void loadMeetingList();
     }
-  }, [currentWorkspaceId, loadFolders, loadMeetingList]);
+  }, [currentWorkspaceId, loadCollections, loadMeetingList]);
 
   useEffect(() => {
     if (!highlightedWorkspaceId) return;
@@ -200,7 +200,7 @@ export default function Sidebar() {
       router.push(`/workspace/${id}`);
     }
 
-    await loadFolders();
+    await loadCollections();
     await loadMeetingList();
   };
 
@@ -225,7 +225,7 @@ export default function Sidebar() {
     if (workspaces.length <= 1) return;
     const deletingCurrent = currentWorkspaceId === id;
     await deleteWorkspace(id);
-    await loadFolders();
+    await loadCollections();
     await loadMeetingList();
 
     if (deletingCurrent) {

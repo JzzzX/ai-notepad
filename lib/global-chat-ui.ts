@@ -94,10 +94,9 @@ export function parseStoredGlobalChatFilters(raw: string | null | undefined): Gl
   try {
     const parsed = JSON.parse(raw) as GlobalChatFilters;
     return {
-      titleKeyword: parsed.titleKeyword || '',
       dateFrom: parsed.dateFrom || '',
       dateTo: parsed.dateTo || '',
-      folderId: parsed.folderId || '',
+      collectionId: parsed.collectionId || '',
     };
   } catch {
     return {};
@@ -106,10 +105,9 @@ export function parseStoredGlobalChatFilters(raw: string | null | undefined): Gl
 
 export function serializeGlobalChatFilters(filters: GlobalChatFilters) {
   return JSON.stringify({
-    titleKeyword: filters.titleKeyword || '',
     dateFrom: filters.dateFrom || '',
     dateTo: filters.dateTo || '',
-    folderId: filters.folderId || '',
+    collectionId: filters.collectionId || '',
   });
 }
 

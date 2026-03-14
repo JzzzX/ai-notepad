@@ -14,7 +14,7 @@ export default function WorkspaceSwitcher() {
     createWorkspace,
     updateWorkspace,
     deleteWorkspace,
-    loadFolders,
+    loadCollections,
     loadMeetingList,
     reset,
   } = useMeetingStore();
@@ -53,7 +53,7 @@ export default function WorkspaceSwitcher() {
     setOpen(false);
     setEditingId(null);
     setIsCreating(false);
-    await loadFolders();
+    await loadCollections();
     await loadMeetingList();
   };
 
@@ -85,7 +85,7 @@ export default function WorkspaceSwitcher() {
   const handleDelete = async (id: string) => {
     if (workspaces.length <= 1) return;
     await deleteWorkspace(id);
-    await loadFolders();
+    await loadCollections();
     await loadMeetingList();
   };
 

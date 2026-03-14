@@ -19,7 +19,7 @@ import { chatAcrossMeetings } from '@/lib/llm';
 import { useMeetingStore } from '@/lib/store';
 import type {
   ChatMessage,
-  Folder,
+  Collection,
   GlobalChatFilters,
   GlobalChatSessionDetail,
   Template,
@@ -42,7 +42,7 @@ export default function GlobalChatSessionPage() {
   const [title, setTitle] = useState('新对话');
   const [filters, setFilters] = useState<GlobalChatFilters>({});
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
@@ -85,29 +85,29 @@ export default function GlobalChatSessionPage() {
   useEffect(() => {
     let active = true;
 
-    const loadScopedFolders = async () => {
+    const loadScopedCollections = async () => {
       if (!selectedWorkspaceId) {
-        setFolders([]);
-        setFilters((prev) => (prev.folderId ? { ...prev, folderId: '' } : prev));
+        setCollections([]);
+        setFilters((prev) => (prev.collectionId ? { ...prev, collectionId: '' } : prev));
         return;
       }
 
       try {
-        const res = await fetch(`/api/folders?workspaceId=${selectedWorkspaceId}`);
+        const res = await fetch(`/api/collections?workspaceId=${selectedWorkspaceId}`);
         if (!res.ok || !active) return;
-        const data = (await res.json()) as Folder[];
-        setFolders(data);
+        const data = (await res.json()) as Collection[];
+        setCollections(data);
         setFilters((prev) =>
-          prev.folderId && !data.some((folder) => folder.id === prev.folderId)
-            ? { ...prev, folderId: '' }
+          prev.collectionId && !data.some((collection) => collection.id === prev.collectionId)
+            ? { ...prev, collectionId: '' }
             : prev
         );
       } catch (loadError) {
-        console.error('Load chat folders failed:', loadError);
+        console.error('Load chat collections failed:', loadError);
       }
     };
 
-    void loadScopedFolders();
+    void loadScopedCollections();
     return () => {
       active = false;
     };
@@ -537,7 +537,7 @@ export default function GlobalChatSessionPage() {
                 filters={filters}
                 onFiltersChange={setFilters}
                 templates={templates}
-                folders={folders}
+                collections={collections}
                 disabled={isLoadingSession}
                 loading={isSending}
                 placeholder="继续追问，或输入 / 命令"

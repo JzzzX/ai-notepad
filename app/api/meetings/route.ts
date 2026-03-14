@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   const query = searchParams.get('query')?.trim() || '';
   const dateFrom = searchParams.get('dateFrom');
   const dateTo = searchParams.get('dateTo');
-  const folderId = searchParams.get('folderId');
+  const collectionId = searchParams.get('collectionId');
   const workspaceId = searchParams.get('workspaceId');
 
   const where: Prisma.MeetingWhereInput = {};
@@ -51,8 +51,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (folderId) {
-    where.folderId = folderId === '__ungrouped' ? null : folderId;
+  if (collectionId) {
+    where.collectionId = collectionId === '__ungrouped' ? null : collectionId;
   }
 
   const meetings = await prisma.meeting.findMany({
@@ -70,9 +70,21 @@ export async function GET(req: NextRequest) {
       userNotes: true,
       enhancedNotes: true,
       createdAt: true,
-      folderId: true,
+      collectionId: true,
       workspaceId: true,
-      folder: true,
+      collection: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          icon: true,
+          color: true,
+          sortOrder: true,
+          workspaceId: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
       workspace: {
         select: {
           id: true,
@@ -96,7 +108,7 @@ export async function POST(req: NextRequest) {
     date,
     status,
     duration,
-    folderId,
+    collectionId,
     workspaceId,
     userNotes,
     enhancedNotes,
@@ -119,7 +131,7 @@ export async function POST(req: NextRequest) {
         date: normalizedDate,
         status: status || 'ended',
         duration: duration || 0,
-        folderId: folderId || null,
+        collectionId: collectionId || null,
         workspaceId: workspaceId,
         userNotes: userNotes || '',
         enhancedNotes: enhancedNotes || '',
@@ -130,7 +142,7 @@ export async function POST(req: NextRequest) {
         date: normalizedDate,
         status: status || 'ended',
         duration: duration || 0,
-        folderId: folderId || null,
+        collectionId: collectionId || null,
         workspaceId: workspaceId,
         userNotes: userNotes || '',
         enhancedNotes: enhancedNotes || '',
@@ -177,7 +189,7 @@ export async function POST(req: NextRequest) {
     return tx.meeting.findUnique({
       where: { id: upsertedMeeting.id },
       include: {
-        folder: true,
+        collection: true,
         segments: { orderBy: { order: 'asc' } },
         chatMessages: { orderBy: { timestamp: 'asc' } },
       },

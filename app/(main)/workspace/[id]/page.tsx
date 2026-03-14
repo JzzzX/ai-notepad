@@ -2,11 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Edit3, FileAudio, FolderClosed, Mic } from 'lucide-react';
-import MeetingHistory from '@/components/MeetingHistory';
+import { ArrowRight, Edit3, FileAudio, FolderClosed, Mic, Plus, Trash2 } from 'lucide-react';
+import CollectionModal from '@/components/CollectionModal';
 import WorkspaceIconBadge from '@/components/WorkspaceIconBadge';
 import WorkspaceModal from '@/components/WorkspaceModal';
 import { useMeetingStore } from '@/lib/store';
+import type { Collection } from '@/lib/types';
+
+function formatLatestMeeting(value?: string | null) {
+  if (!value) return '还没有会议';
+  const date = new Date(value);
+  return date.toLocaleString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 export default function WorkspacePage() {
   const params = useParams();
@@ -17,14 +29,21 @@ export default function WorkspacePage() {
     currentWorkspaceId,
     setCurrentWorkspaceId,
     loadWorkspaces,
-    loadFolders,
+    loadCollections,
     loadMeetingList,
     updateWorkspace,
+    createCollection,
+    updateCollection,
+    deleteCollection,
     meetingList,
-    folders,
+    collections,
   } = useMeetingStore();
 
   const [showEditWorkspace, setShowEditWorkspace] = useState(false);
+  const [collectionModalState, setCollectionModalState] = useState<{
+    mode: 'create' | 'edit';
+    collectionId?: string;
+  } | null>(null);
 
   useEffect(() => {
     void loadWorkspaces();
@@ -38,10 +57,10 @@ export default function WorkspacePage() {
   }, [currentWorkspaceId, setCurrentWorkspaceId, workspaceId]);
 
   useEffect(() => {
-    if (!currentWorkspaceId) return;
-    void loadFolders();
+    if (!workspaceId || currentWorkspaceId !== workspaceId) return;
+    void loadCollections();
     void loadMeetingList({ workspaceScope: 'current' });
-  }, [currentWorkspaceId, loadFolders, loadMeetingList]);
+  }, [currentWorkspaceId, loadCollections, loadMeetingList, workspaceId]);
 
   const workspace = useMemo(
     () => workspaces.find((item) => item.id === workspaceId) || null,
@@ -50,9 +69,38 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     if (workspaces.length > 0 && !workspace) {
-      router.replace('/');
+      router.replace('/workspace');
     }
   }, [router, workspace, workspaces.length]);
+
+  const collectionById = useMemo(
+    () => new Map(collections.map((item) => [item.id, item])),
+    [collections]
+  );
+
+  const collectionStats = useMemo(() => {
+    const grouped = collections.map((collection) => {
+      const meetings = meetingList.filter((meeting) => meeting.collectionId === collection.id);
+      return {
+        collection,
+        meetingCount: meetings.length,
+        latestMeetingAt: meetings[0]?.date || null,
+      };
+    });
+
+    const ungroupedMeetings = meetingList.filter((meeting) => !meeting.collectionId);
+
+    return {
+      grouped,
+      ungroupedCount: ungroupedMeetings.length,
+      ungroupedLatestMeetingAt: ungroupedMeetings[0]?.date || null,
+    };
+  }, [collections, meetingList]);
+
+  const editingCollection =
+    collectionModalState?.mode === 'edit' && collectionModalState.collectionId
+      ? collectionById.get(collectionModalState.collectionId) || null
+      : null;
 
   const handleNewMeeting = useCallback(() => {
     const { reset } = useMeetingStore.getState();
@@ -77,6 +125,41 @@ export default function WorkspacePage() {
     [updateWorkspace, workspace]
   );
 
+  const handleSaveCollection = useCallback(
+    async (input: { name: string; description: string; color: string; icon: string }) => {
+      if (collectionModalState?.mode === 'edit' && collectionModalState.collectionId) {
+        await updateCollection(collectionModalState.collectionId, input);
+      } else {
+        await createCollection(input);
+      }
+      setCollectionModalState(null);
+    },
+    [collectionModalState, createCollection, updateCollection]
+  );
+
+  const handleDeleteCollection = useCallback(
+    async (collection: Collection) => {
+      if (
+        !window.confirm(`确定删除「${collection.name}」吗？其中会议会回到“未归类”。`)
+      ) {
+        return;
+      }
+      await deleteCollection(collection.id);
+    },
+    [deleteCollection]
+  );
+
+  const openCollectionRoute = useCallback(
+    (collectionId: string) => {
+      router.push(`/workspace/${workspaceId}/collections/${collectionId}`);
+    },
+    [router, workspaceId]
+  );
+
+  const openUngroupedRoute = useCallback(() => {
+    router.push(`/workspace/${workspaceId}/ungrouped`);
+  }, [router, workspaceId]);
+
   return (
     <div className="min-h-full bg-[#F6F2EB]">
       <div className="mx-auto flex max-w-[1180px] flex-col gap-6 px-6 pb-10 pt-8 sm:px-8 lg:px-10">
@@ -85,11 +168,7 @@ export default function WorkspacePage() {
             <div className="min-w-0">
               {workspace ? (
                 <div className="inline-flex items-center gap-3 rounded-full bg-white/90 px-4 py-2 text-sm text-[#6C5D50]">
-                  <WorkspaceIconBadge
-                    icon={workspace.icon}
-                    color={workspace.color}
-                    size="sm"
-                  />
+                  <WorkspaceIconBadge icon={workspace.icon} color={workspace.color} size="sm" />
                   <span>工作区</span>
                 </div>
               ) : null}
@@ -97,15 +176,11 @@ export default function WorkspacePage() {
                 {workspace?.name || '工作区'}
               </h1>
               <p className="mt-3 max-w-[720px] text-[15px] leading-7 text-[#7C6B5C]">
-                {workspace?.description || '管理这个工作区下的会议记录、AI 笔记和文件夹归档。'}
+                {workspace?.description || '先选一个 Collection，再管理这组会议和笔记历史。'}
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-2 text-[12px] text-[#8B796A]">
-                <span className="rounded-full bg-white px-3 py-1.5">
-                  会议 {meetingList.length} 条
-                </span>
-                <span className="rounded-full bg-white px-3 py-1.5">
-                  文件夹 {folders.length} 个
-                </span>
+                <span className="rounded-full bg-white px-3 py-1.5">会议 {meetingList.length} 条</span>
+                <span className="rounded-full bg-white px-3 py-1.5">Collection {collections.length} 个</span>
               </div>
             </div>
 
@@ -134,25 +209,119 @@ export default function WorkspacePage() {
                 <Edit3 size={16} />
                 编辑工作区
               </button>
+              <button
+                type="button"
+                onClick={() => setCollectionModalState({ mode: 'create' })}
+                className="inline-flex items-center gap-2 rounded-xl border border-[#D8CEC4] bg-white px-4 py-2.5 text-sm font-medium text-[#5C4D42] transition-colors hover:bg-[#FBF8F4]"
+              >
+                <Plus size={16} />
+                新建 Collection
+              </button>
             </div>
           </div>
         </section>
 
-        <section className="rounded-[30px] border border-[#DED4C9] bg-white/90 p-4 shadow-[0_18px_48px_rgba(58,46,37,0.08)] sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-2">
+        <section className="rounded-[30px] border border-[#DED4C9] bg-white/90 p-5 shadow-[0_18px_48px_rgba(58,46,37,0.08)]">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="font-song text-[26px] text-[#3A2E25]">会议与笔记历史</h2>
+              <h2 className="font-song text-[26px] text-[#3A2E25]">Collections</h2>
               <p className="mt-1 text-sm text-[#8B796A]">
-                按标题、时间和文件夹管理这个工作区下的会议记录，卡片会直接显示笔记预览。
+                先进入某个 Collection，再查看那一组会议、笔记和后续检索范围。
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#F8F4EF] px-3 py-2 text-[12px] text-[#8B796A]">
-              <FolderClosed size={13} />
-              文件夹管理已移动到这里
+            <div className="rounded-full bg-[#F8F4EF] px-3 py-2 text-[12px] text-[#8B796A]">
+              共 {collections.length + 1} 个入口（含未归类）
             </div>
           </div>
 
-          <MeetingHistory />
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <button
+              type="button"
+              onClick={openUngroupedRoute}
+              className="group rounded-[26px] border border-dashed border-[#D9CBBB] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,243,236,0.92))] p-5 text-left shadow-[0_14px_40px_rgba(58,46,37,0.05)] transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_44px_rgba(58,46,37,0.1)]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#E3D9CE] bg-white text-[#8C7A6B]">
+                    <FolderClosed size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-lg font-semibold text-[#3A2E25]">未归类</div>
+                    <div className="mt-1 text-xs text-[#A09082]">尚未归入任何 Collection</div>
+                  </div>
+                </div>
+                <ArrowRight size={16} className="shrink-0 text-[#B09D8A] transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <p className="mt-4 min-h-[44px] text-sm leading-6 text-[#746556]">
+                用来承接刚录完、还未整理结构的会议记录。
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-2 text-[12px] text-[#8B796A]">
+                <span className="rounded-full bg-white px-3 py-1.5">会议 {collectionStats.ungroupedCount} 条</span>
+                <span className="rounded-full bg-white px-3 py-1.5">
+                  {formatLatestMeeting(collectionStats.ungroupedLatestMeetingAt)}
+                </span>
+              </div>
+            </button>
+
+            {collectionStats.grouped.map(({ collection, meetingCount, latestMeetingAt }) => (
+              <div
+                key={collection.id}
+                className="group rounded-[26px] border border-[#E7DDD2] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,243,236,0.92))] p-5 shadow-[0_14px_40px_rgba(58,46,37,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_20px_44px_rgba(58,46,37,0.12)]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => openCollectionRoute(collection.id)}
+                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                  >
+                    <WorkspaceIconBadge icon={collection.icon} color={collection.color} size="lg" />
+                    <div className="min-w-0">
+                      <div className="truncate text-lg font-semibold text-[#3A2E25]">
+                        {collection.name}
+                      </div>
+                      <div className="mt-1 text-xs text-[#A09082]">点击进入管理</div>
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCollectionModalState({ mode: 'edit', collectionId: collection.id })
+                      }
+                      className="rounded-xl p-2 text-[#A09082] transition-colors hover:bg-white hover:text-[#5C4D42]"
+                      title="编辑 Collection"
+                    >
+                      <Edit3 size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeleteCollection(collection)}
+                      className="rounded-xl p-2 text-[#A09082] transition-colors hover:bg-rose-50 hover:text-rose-600"
+                      title="删除 Collection"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => openCollectionRoute(collection.id)}
+                  className="mt-4 block w-full text-left"
+                >
+                  <p className="line-clamp-2 min-h-[44px] text-sm leading-6 text-[#746556]">
+                    {collection.description || '还没有描述，可进入后继续补充这个 Collection 的用途。'}
+                  </p>
+                  <div className="mt-5 flex flex-wrap items-center gap-2 text-[12px] text-[#8B796A]">
+                    <span className="rounded-full bg-white px-3 py-1.5">会议 {meetingCount} 条</span>
+                    <span className="rounded-full bg-white px-3 py-1.5">
+                      {formatLatestMeeting(latestMeetingAt)}
+                    </span>
+                  </div>
+                </button>
+              </div>
+            ))}
+          </div>
         </section>
       </div>
 
@@ -162,6 +331,14 @@ export default function WorkspacePage() {
         workspace={workspace}
         onClose={() => setShowEditWorkspace(false)}
         onSubmit={handleSaveWorkspace}
+      />
+
+      <CollectionModal
+        open={Boolean(collectionModalState)}
+        mode={collectionModalState?.mode || 'create'}
+        collection={editingCollection}
+        onClose={() => setCollectionModalState(null)}
+        onSubmit={handleSaveCollection}
       />
     </div>
   );

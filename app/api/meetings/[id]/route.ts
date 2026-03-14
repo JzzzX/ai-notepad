@@ -12,7 +12,7 @@ export async function GET(
   const meeting = await prisma.meeting.findUnique({
     where: { id },
     include: {
-      folder: true,
+      collection: true,
       segments: { orderBy: { order: 'asc' } },
       chatMessages: { orderBy: { timestamp: 'asc' } },
     },
@@ -46,7 +46,7 @@ export async function PUT(
     title,
     status,
     duration,
-    folderId,
+    collectionId,
     workspaceId,
     userNotes,
     enhancedNotes,
@@ -60,7 +60,7 @@ export async function PUT(
   if (title !== undefined) updateData.title = title;
   if (status !== undefined) updateData.status = status;
   if (duration !== undefined) updateData.duration = duration;
-  if (folderId !== undefined) updateData.folderId = folderId || null;
+  if (collectionId !== undefined) updateData.collectionId = collectionId || null;
   if (workspaceId !== undefined) updateData.workspaceId = workspaceId;
   if (userNotes !== undefined) updateData.userNotes = userNotes;
   if (enhancedNotes !== undefined) updateData.enhancedNotes = enhancedNotes;
@@ -110,7 +110,7 @@ export async function PUT(
   const hydratedMeeting = await prisma.meeting.findUnique({
     where: { id: meeting.id },
     include: {
-      folder: true,
+      collection: true,
       segments: { orderBy: { order: 'asc' } },
       chatMessages: { orderBy: { timestamp: 'asc' } },
     },

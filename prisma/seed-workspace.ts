@@ -29,12 +29,12 @@ async function main() {
   );
   console.log(`Backfilled meetings: ${meetingResult}`);
 
-  // Backfill all existing folders
-  const folderResult = await prisma.$executeRawUnsafe(
+  // Backfill all existing collections (legacy Folder table)
+  const collectionResult = await prisma.$executeRawUnsafe(
     `UPDATE Folder SET workspaceId = ? WHERE workspaceId IS NULL OR workspaceId = ''`,
     workspace.id
   );
-  console.log(`Backfilled folders: ${folderResult}`);
+  console.log(`Backfilled collections: ${collectionResult}`);
 
   return workspace.id;
 }

@@ -6,7 +6,7 @@ import {
   Meeting,
   PromptOptions,
   RecordingOptions,
-  Folder,
+  Collection,
   Workspace,
   LlmSettings,
 } from './types';
@@ -22,11 +22,11 @@ export interface MeetingListItem {
   status: string;
   duration: number;
   createdAt: string;
-  folderId: string | null;
+  collectionId: string | null;
   workspaceId: string;
   userNotes: string;
   enhancedNotes: string;
-  folder?: Folder | null;
+  collection?: Collection | null;
   workspace?: Pick<Workspace, 'id' | 'name' | 'icon' | 'color'> | null;
   _count: { segments: number; chatMessages: number };
 }
@@ -35,7 +35,7 @@ export interface MeetingListFilters {
   query?: string;
   dateFrom?: string;
   dateTo?: string;
-  folderId?: string | null;
+  collectionId?: string | null;
   workspaceScope?: MeetingListScope;
 }
 
@@ -53,7 +53,7 @@ interface MeetingStore {
   meetingDate: number;
   status: Meeting['status'];
   duration: number;
-  currentFolderId: string | null;
+  currentCollectionId: string | null;
   audioUrl: string | null;
   audioBlob: Blob | null;
   audioMimeType: string | null;
@@ -101,8 +101,8 @@ interface MeetingStore {
   isLoadingList: boolean;
   isSaving: boolean;
   isPersistedMeeting: boolean;
-  folders: Folder[];
-  isLoadingFolders: boolean;
+  collections: Collection[];
+  isLoadingCollections: boolean;
 
   // Actions
   startMeeting: () => void;
@@ -121,7 +121,7 @@ interface MeetingStore {
   setPromptOptions: (patch: Partial<PromptOptions>) => void;
   setRecordingOptions: (patch: Partial<RecordingOptions>) => void;
   setLlmSettings: (patch: Partial<LlmSettings>) => void;
-  setCurrentFolderId: (folderId: string | null) => void;
+  setCurrentCollectionId: (collectionId: string | null) => void;
   setMeetingAudio: (input: {
     url?: string | null;
     blob?: Blob | null;
@@ -141,10 +141,21 @@ interface MeetingStore {
   loadMeeting: (id: string) => Promise<void>;
   loadMeetingList: (filters?: MeetingListFilters) => Promise<void>;
   deleteMeeting: (id: string) => Promise<void>;
-  loadFolders: () => Promise<void>;
-  createFolder: (input: { name: string; color: string }) => Promise<Folder | null>;
-  deleteFolder: (folderId: string) => Promise<void>;
-  updateMeetingFolder: (meetingId: string, folderId: string | null) => Promise<void>;
+  loadCollections: () => Promise<void>;
+  createCollection: (input: {
+    name: string;
+    description?: string;
+    icon?: string;
+    color: string;
+  }) => Promise<Collection | null>;
+  updateCollection: (id: string, input: {
+    name?: string;
+    description?: string;
+    icon?: string;
+    color?: string;
+  }) => Promise<Collection>;
+  deleteCollection: (collectionId: string) => Promise<void>;
+  updateMeetingCollection: (meetingId: string, collectionId: string | null) => Promise<void>;
   updateMeetingWorkspace: (meetingId: string, workspaceId: string) => Promise<void>;
   setMeetingListScope: (scope: MeetingListScope) => void;
 
@@ -162,7 +173,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
   meetingDate: Date.now(),
   status: 'idle',
   duration: 0,
-  currentFolderId: null,
+  currentCollectionId: null,
   audioUrl: null,
   audioBlob: null,
   audioMimeType: null,
@@ -205,8 +216,8 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
   isLoadingList: false,
   isSaving: false,
   isPersistedMeeting: false,
-  folders: [],
-  isLoadingFolders: false,
+  collections: [],
+  isLoadingCollections: false,
 
   startMeeting: () =>
     set({
@@ -276,7 +287,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
     set((state) => ({
       llmSettings: normalizeLlmSettings({ ...state.llmSettings, ...patch }),
     })),
-  setCurrentFolderId: (folderId) => set({ currentFolderId: folderId }),
+  setCurrentCollectionId: (collectionId) => set({ currentCollectionId: collectionId }),
   setMeetingAudio: (input) =>
     set((state) => {
       const nextUrl = input.url !== undefined ? input.url : state.audioUrl;
@@ -327,7 +338,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
         meetingDate: Date.now(),
         status: 'idle',
         duration: 0,
-        currentFolderId: null,
+        currentCollectionId: null,
         audioUrl: null,
         audioBlob: null,
         audioMimeType: null,
@@ -382,7 +393,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
           date: state.meetingDate,
           status: state.status,
           duration: state.duration,
-          folderId: state.currentFolderId,
+          collectionId: state.currentCollectionId,
           workspaceId: state.currentWorkspaceId,
           userNotes: state.userNotes,
           enhancedNotes: state.enhancedNotes,
@@ -473,7 +484,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
           meetingDate: new Date(data.date).getTime(),
           status: data.status as Meeting['status'],
           duration: data.duration,
-          currentFolderId: data.folderId ?? null,
+          currentCollectionId: data.collectionId ?? null,
           audioUrl: nextAudioUrl,
           audioBlob: null,
           audioMimeType: data.audioMimeType ?? null,
@@ -520,7 +531,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
       if (filters?.query?.trim()) params.set('query', filters.query.trim());
       if (filters?.dateFrom) params.set('dateFrom', filters.dateFrom);
       if (filters?.dateTo) params.set('dateTo', filters.dateTo);
-      if (filters?.folderId) params.set('folderId', filters.folderId);
+      if (filters?.collectionId) params.set('collectionId', filters.collectionId);
       const scope = filters?.workspaceScope || get().meetingListScope;
       const wsId = get().currentWorkspaceId;
       if (scope === 'current' && wsId) params.set('workspaceId', wsId);
@@ -554,88 +565,115 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
     }
   },
 
-  loadFolders: async () => {
-    set({ isLoadingFolders: true });
+  loadCollections: async () => {
+    set({ isLoadingCollections: true });
     try {
       const wsId = get().currentWorkspaceId;
       const params = wsId ? `?workspaceId=${wsId}` : '';
-      const res = await fetch(`/api/folders${params}`);
-      if (!res.ok) throw new Error('加载文件夹失败');
-      const data = (await res.json()) as Folder[];
-      set({ folders: data });
+      const res = await fetch(`/api/collections${params}`);
+      if (!res.ok) throw new Error('加载 Collection 失败');
+      const data = (await res.json()) as Collection[];
+      set({ collections: data });
     } catch (e) {
-      console.error('加载文件夹失败:', e);
+      console.error('加载 Collection 失败:', e);
     } finally {
-      set({ isLoadingFolders: false });
+      set({ isLoadingCollections: false });
     }
   },
 
-  createFolder: async (input) => {
+  createCollection: async (input) => {
     try {
       const wsId = get().currentWorkspaceId;
-      const res = await fetch('/api/folders', {
+      const res = await fetch('/api/collections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...input, workspaceId: wsId }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error((data as { error?: string }).error || '创建文件夹失败');
+        throw new Error((data as { error?: string }).error || '创建 Collection 失败');
       }
-      const folder = data as Folder;
+      const collection = data as Collection;
       set((state) => ({
-        folders: [...state.folders, folder].sort((a, b) => a.sortOrder - b.sortOrder),
+        collections: [...state.collections, collection].sort((a, b) => a.sortOrder - b.sortOrder),
       }));
-      return folder;
+      return collection;
     } catch (e) {
-      console.error('创建文件夹失败:', e);
+      console.error('创建 Collection 失败:', e);
       return null;
     }
   },
 
-  deleteFolder: async (folderId) => {
+  updateCollection: async (id, input) => {
+    const res = await fetch(`/api/collections/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error((data as { error?: string }).error || '更新 Collection 失败');
+      console.error('更新 Collection 失败:', error);
+      throw error;
+    }
+
+    const updated = data as Collection;
+    set((state) => ({
+      collections: state.collections.map((collection) =>
+        collection.id === id ? updated : collection
+      ),
+      meetingList: state.meetingList.map((meeting) =>
+        meeting.collectionId === id
+          ? { ...meeting, collection: updated }
+          : meeting
+      ),
+    }));
+    return updated;
+  },
+
+  deleteCollection: async (collectionId) => {
     try {
-      const res = await fetch(`/api/folders/${folderId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('删除文件夹失败');
+      const res = await fetch(`/api/collections/${collectionId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('删除 Collection 失败');
       set((state) => ({
-        folders: state.folders.filter((folder) => folder.id !== folderId),
+        collections: state.collections.filter((collection) => collection.id !== collectionId),
         meetingList: state.meetingList.map((meeting) =>
-          meeting.folderId === folderId
-            ? { ...meeting, folderId: null, folder: null }
+          meeting.collectionId === collectionId
+            ? { ...meeting, collectionId: null, collection: null }
             : meeting
         ),
-        currentFolderId: state.currentFolderId === folderId ? null : state.currentFolderId,
+        currentCollectionId: state.currentCollectionId === collectionId ? null : state.currentCollectionId,
       }));
     } catch (e) {
-      console.error('删除文件夹失败:', e);
+      console.error('删除 Collection 失败:', e);
     }
   },
 
-  updateMeetingFolder: async (meetingId, folderId) => {
+  updateMeetingCollection: async (meetingId, collectionId) => {
     try {
       const res = await fetch(`/api/meetings/${meetingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderId }),
+        body: JSON.stringify({ collectionId }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error((data as { error?: string }).error || '更新会议分组失败');
+        throw new Error((data as { error?: string }).error || '更新会议 Collection 失败');
       }
 
-      const nextFolder =
-        folderId === null ? null : get().folders.find((folder) => folder.id === folderId) || null;
+      const nextCollection =
+        collectionId === null ? null : get().collections.find((collection) => collection.id === collectionId) || null;
 
       set((state) => ({
         meetingList: state.meetingList.map((meeting) =>
           meeting.id === meetingId
-            ? { ...meeting, folderId, folder: nextFolder }
+            ? { ...meeting, collectionId, collection: nextCollection }
             : meeting
         ),
-        currentFolderId: state.meetingId === meetingId ? folderId : state.currentFolderId,
+        currentCollectionId: state.meetingId === meetingId ? collectionId : state.currentCollectionId,
       }));
     } catch (e) {
-      console.error('更新会议分组失败:', e);
+      console.error('更新会议 Collection 失败:', e);
     }
   },
 
@@ -644,7 +682,7 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
       const res = await fetch(`/api/meetings/${meetingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspaceId, folderId: null }),
+        body: JSON.stringify({ workspaceId, collectionId: null }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -668,12 +706,12 @@ export const useMeetingStore = create<MeetingStore>((set, get) => ({
                       color: nextWorkspace.color,
                     }
                   : null,
-                folderId: null,
-                folder: null,
+                collectionId: null,
+                collection: null,
               }
             : meeting
         ),
-        currentFolderId: state.meetingId === meetingId ? null : state.currentFolderId,
+        currentCollectionId: state.meetingId === meetingId ? null : state.currentCollectionId,
       }));
     } catch (e) {
       console.error('更新会议工作区失败:', e);

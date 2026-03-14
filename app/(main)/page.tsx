@@ -72,7 +72,7 @@ export default function HomePage() {
     loadWorkspaces,
     createWorkspace,
     setCurrentWorkspaceId,
-    loadFolders,
+    loadCollections,
   } = useMeetingStore();
 
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
@@ -104,11 +104,11 @@ export default function HomePage() {
     async (input: { name: string; description: string; color: string; icon: string }) => {
       const workspace = await createWorkspace(input);
       setCurrentWorkspaceId(workspace.id);
-      await loadFolders();
+      await loadCollections();
       setShowCreateWorkspace(false);
       router.push(`/workspace/${workspace.id}`);
     },
-    [createWorkspace, loadFolders, router, setCurrentWorkspaceId]
+    [createWorkspace, loadCollections, router, setCurrentWorkspaceId]
   );
 
   const handleOpenWorkspace = useCallback(() => {

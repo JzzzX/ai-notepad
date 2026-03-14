@@ -35,7 +35,7 @@ interface FloatingKnowledgeBaseProps {
 export default function FloatingKnowledgeBase({ isOpen, onClose }: FloatingKnowledgeBaseProps) {
   const {
     currentWorkspaceId,
-    folders,
+    collections,
     promptOptions,
     llmSettings,
     loadMeeting,
@@ -50,7 +50,7 @@ export default function FloatingKnowledgeBase({ isOpen, onClose }: FloatingKnowl
   const [searchScope, setSearchScope] = useState<'workspace' | 'all'>('workspace');
   const [searchDateFrom, setSearchDateFrom] = useState('');
   const [searchDateTo, setSearchDateTo] = useState('');
-  const [searchFolderId, setSearchFolderId] = useState('');
+  const [searchCollectionId, setSearchCollectionId] = useState('');
 
   // QA tab state
   const [qaMessages, setQaMessages] = useState<ChatMessage[]>([]);
@@ -77,7 +77,7 @@ export default function FloatingKnowledgeBase({ isOpen, onClose }: FloatingKnowl
       }
       if (searchDateFrom) filters.dateFrom = searchDateFrom;
       if (searchDateTo) filters.dateTo = searchDateTo;
-      if (searchFolderId) filters.folderId = searchFolderId;
+      if (searchCollectionId) filters.collectionId = searchCollectionId;
 
       const res = await fetch('/api/knowledge/search', {
         method: 'POST',
@@ -93,7 +93,7 @@ export default function FloatingKnowledgeBase({ isOpen, onClose }: FloatingKnowl
     } finally {
       setIsSearching(false);
     }
-  }, [searchQuery, isSearching, searchScope, currentWorkspaceId, searchDateFrom, searchDateTo, searchFolderId]);
+  }, [searchQuery, isSearching, searchScope, currentWorkspaceId, searchDateFrom, searchDateTo, searchCollectionId]);
 
   const handleResultClick = async (meetingId: string) => {
     await loadMeeting(meetingId);
@@ -303,12 +303,13 @@ export default function FloatingKnowledgeBase({ isOpen, onClose }: FloatingKnowl
                     className="rounded-lg border border-stone-200 bg-white/90 px-2 py-1 text-xs text-stone-600 focus:outline-none"
                   />
                   <select
-                    value={searchFolderId}
-                    onChange={(e) => setSearchFolderId(e.target.value)}
+                    value={searchCollectionId}
+                    onChange={(e) => setSearchCollectionId(e.target.value)}
                     className="rounded-lg border border-stone-200 bg-white/90 px-2 py-1 text-xs text-stone-600 focus:outline-none"
                   >
-                    <option value="">全部文件夹</option>
-                    {folders.map((f) => (
+                    <option value="">全部 Collections</option>
+                    <option value="__ungrouped">未归类</option>
+                    {collections.map((f) => (
                       <option key={f.id} value={f.id}>{f.name}</option>
                     ))}
                   </select>

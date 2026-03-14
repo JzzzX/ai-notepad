@@ -3,10 +3,9 @@ import type { LlmRuntimeConfig, LlmSettings, PromptOptions } from './types';
 import { normalizeLlmSettings } from './llm-config';
 
 export interface GlobalChatFilters {
-  titleKeyword?: string;
   dateFrom?: string;
   dateTo?: string;
-  folderId?: string;
+  collectionId?: string;
   workspaceId?: string;
 }
 

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Loader2, Mic, Send, SlidersHorizontal } from 'lucide-react';
 import { buildGlobalChatCatalogItems, type GlobalChatRecipe } from '@/lib/global-chat-ui';
-import type { Folder, GlobalChatFilters, GlobalChatScope, Template, Workspace } from '@/lib/types';
+import type { Collection, GlobalChatFilters, GlobalChatScope, Template, Workspace } from '@/lib/types';
 
 export interface GlobalChatSubmitPayload {
   displayText?: string;
@@ -26,7 +26,7 @@ interface GlobalChatComposerProps {
   filters: GlobalChatFilters;
   onFiltersChange: (filters: GlobalChatFilters) => void;
   templates: Template[];
-  folders: Folder[];
+  collections: Collection[];
   disabled?: boolean;
   loading?: boolean;
   placeholder: string;
@@ -37,11 +37,6 @@ function accentClass(accent: 'lime' | 'amber' | 'sky' | 'violet') {
   if (accent === 'sky') return 'bg-sky-400';
   if (accent === 'violet') return 'bg-violet-400';
   return 'bg-amber-400';
-}
-
-function workspaceLabel(selectedWorkspaceId: string | null, workspaces: Workspace[]) {
-  if (!selectedWorkspaceId) return '全部工作区';
-  return workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name || '指定工作区';
 }
 
 export default function GlobalChatComposer({
@@ -56,12 +51,14 @@ export default function GlobalChatComposer({
   filters,
   onFiltersChange,
   templates,
-  folders,
+  collections,
   disabled = false,
   loading = false,
   placeholder,
 }: GlobalChatComposerProps) {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const contextButtonRef = useRef<HTMLButtonElement | null>(null);
+  const contextCardRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const dictationBaseRef = useRef('');
   const [showContext, setShowContext] = useState(false);
@@ -111,9 +108,34 @@ export default function GlobalChatComposer({
 
   useEffect(() => {
     if (selectedWorkspaceId) return;
-    if (!filters.folderId) return;
-    onFiltersChange({ ...filters, folderId: '' });
+    if (!filters.collectionId) return;
+    onFiltersChange({ ...filters, collectionId: '' });
   }, [filters, onFiltersChange, selectedWorkspaceId]);
+
+  useEffect(() => {
+    if (!showContext) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (contextCardRef.current?.contains(target)) return;
+      if (contextButtonRef.current?.contains(target)) return;
+      setShowContext(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowContext(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showContext]);
 
   const stopDictation = useCallback(() => {
     if (recognitionRef.current) {
@@ -256,7 +278,20 @@ export default function GlobalChatComposer({
       ? 'rounded-[28px] border border-[#D8CEC4] bg-white p-4 shadow-[0_12px_36px_rgba(58,46,37,0.08)]'
       : 'rounded-[24px] border border-[#D8CEC4] bg-white p-3 shadow-[0_12px_30px_rgba(58,46,37,0.08)]';
   const activeCommandIdx = Math.min(selectedIdx, Math.max(commandItems.length - 1, 0));
-  const selectedWorkspaceLabel = workspaceLabel(selectedWorkspaceId, workspaces);
+  const contextSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (selectedWorkspaceId && filters.collectionId) {
+      const selectedCollection =
+        filters.collectionId === '__ungrouped'
+          ? '未归类'
+          : collections.find((item) => item.id === filters.collectionId)?.name || '指定 Collection';
+      parts.push(selectedCollection);
+    }
+    if (filters.dateFrom || filters.dateTo) {
+      parts.push('时间范围');
+    }
+    return parts.length > 0 ? parts.join(' · ') : '';
+  }, [collections, filters.collectionId, filters.dateFrom, filters.dateTo, selectedWorkspaceId]);
 
   return (
     <div className="relative">
@@ -288,17 +323,15 @@ export default function GlobalChatComposer({
 
           <button
             type="button"
+            ref={contextButtonRef}
             onClick={() => setShowContext((value) => !value)}
             className="inline-flex items-center gap-1 rounded-full border border-[#E3D9CE] bg-[#FBF8F4] px-3 py-2 text-[12px] text-[#6B5C50] transition-colors hover:bg-white"
           >
             <SlidersHorizontal size={13} />
             Add context
+            {contextSummary ? <span className="text-[#A08C79]">{contextSummary}</span> : null}
             <ChevronDown size={12} />
           </button>
-
-          <span className="rounded-full bg-[#F1EBE3] px-3 py-2 text-[12px] text-[#8C7A6B]">
-            {selectedWorkspaceLabel}
-          </span>
         </div>
 
         <div className="flex items-end gap-2">
@@ -344,42 +377,33 @@ export default function GlobalChatComposer({
       </div>
 
       {showContext ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-20 rounded-[24px] border border-[#E3D9CE] bg-[#FCFAF7] p-4 shadow-[0_22px_48px_rgba(58,46,37,0.14)]">
+        <div
+          ref={contextCardRef}
+          className="absolute left-0 right-0 top-[calc(100%+12px)] z-20 rounded-[24px] border border-[#E3D9CE] bg-[#FCFAF7] p-4 shadow-[0_22px_48px_rgba(58,46,37,0.14)]"
+        >
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-[12px] text-[#8C7A6B]">
-              标题关键词
-              <input
-                value={filters.titleKeyword || ''}
-                onChange={(event) =>
-                  onFiltersChange({ ...filters, titleKeyword: event.target.value })
-                }
-                placeholder="例如：复盘、面试、周会"
-                className="mt-1.5 w-full rounded-xl border border-[#E3D9CE] bg-white px-3 py-2.5 text-sm text-[#3A2E25] focus:border-[#BFAE9E] focus:outline-none"
-              />
-            </label>
-
             {selectedWorkspaceId ? (
               <label className="text-[12px] text-[#8C7A6B]">
-                文件夹
+                Collection
                 <select
-                  value={filters.folderId || ''}
+                  value={filters.collectionId || ''}
                   onChange={(event) =>
-                    onFiltersChange({ ...filters, folderId: event.target.value })
+                    onFiltersChange({ ...filters, collectionId: event.target.value })
                   }
                   className="mt-1.5 w-full rounded-xl border border-[#E3D9CE] bg-white px-3 py-2.5 text-sm text-[#3A2E25] focus:border-[#BFAE9E] focus:outline-none"
                 >
-                  <option value="">全部文件夹</option>
-                  <option value="__ungrouped">未分组</option>
-                  {folders.map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folder.name}
+                  <option value="">全部 Collections</option>
+                  <option value="__ungrouped">未归类</option>
+                  {collections.map((collection) => (
+                    <option key={collection.id} value={collection.id}>
+                      {collection.name}
                     </option>
                   ))}
                 </select>
               </label>
             ) : (
               <div className="rounded-xl border border-dashed border-[#E3D9CE] bg-white/70 px-3 py-3 text-[12px] leading-6 text-[#9A8877]">
-                选中全部工作区时，不提供文件夹筛选。
+                选中全部工作区时，不提供 Collection 筛选。
               </div>
             )}
 

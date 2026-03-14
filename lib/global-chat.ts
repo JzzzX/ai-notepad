@@ -2,10 +2,9 @@ import { Prisma } from '@prisma/client';
 import { prisma } from './db';
 
 export interface GlobalChatFilters {
-  titleKeyword?: string;
   dateFrom?: string;
   dateTo?: string;
-  folderId?: string;
+  collectionId?: string;
   workspaceId?: string;
 }
 
@@ -237,11 +236,6 @@ function pickSnippets(
 function buildWhere(filters: GlobalChatFilters): Prisma.MeetingWhereInput {
   const where: Prisma.MeetingWhereInput = {};
 
-  const titleKeyword = filters.titleKeyword?.trim();
-  if (titleKeyword) {
-    where.title = { contains: titleKeyword };
-  }
-
   const from = parseDateBoundary(filters.dateFrom, false);
   const to = parseDateBoundary(filters.dateTo, true);
   if (from || to) {
@@ -251,8 +245,8 @@ function buildWhere(filters: GlobalChatFilters): Prisma.MeetingWhereInput {
     where.date = dateFilter;
   }
 
-  if (filters.folderId) {
-    where.folderId = filters.folderId === '__ungrouped' ? null : filters.folderId;
+  if (filters.collectionId) {
+    where.collectionId = filters.collectionId === '__ungrouped' ? null : filters.collectionId;
   }
 
   if (filters.workspaceId) {

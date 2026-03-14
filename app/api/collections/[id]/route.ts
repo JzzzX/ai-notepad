@@ -7,19 +7,30 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const body = (await req.json()) as { name?: string; color?: string };
+    const body = (await req.json()) as {
+      name?: string;
+      description?: string;
+      icon?: string;
+      color?: string;
+    };
 
-    const folder = await prisma.folder.update({
+    if (body.name !== undefined && !body.name.trim()) {
+      return NextResponse.json({ error: 'Collection 名称不能为空' }, { status: 400 });
+    }
+
+    const collection = await prisma.collection.update({
       where: { id },
       data: {
         ...(body.name !== undefined ? { name: body.name.trim() } : {}),
+        ...(body.description !== undefined ? { description: body.description.trim() } : {}),
+        ...(body.icon !== undefined ? { icon: body.icon.trim() || 'folder' } : {}),
         ...(body.color !== undefined ? { color: body.color.trim() || '#94a3b8' } : {}),
       },
     });
 
-    return NextResponse.json(folder);
+    return NextResponse.json(collection);
   } catch (error) {
-    const message = error instanceof Error ? error.message : '更新文件夹失败';
+    const message = error instanceof Error ? error.message : '更新 Collection 失败';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -33,17 +44,17 @@ export async function DELETE(
 
     await prisma.$transaction([
       prisma.meeting.updateMany({
-        where: { folderId: id },
-        data: { folderId: null },
+        where: { collectionId: id },
+        data: { collectionId: null },
       }),
-      prisma.folder.delete({
+      prisma.collection.delete({
         where: { id },
       }),
     ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : '删除文件夹失败';
+    const message = error instanceof Error ? error.message : '删除 Collection 失败';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
