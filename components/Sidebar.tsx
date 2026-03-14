@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
+  Briefcase,
+  ChevronDown,
+  ChevronRight,
   Home,
   MessageSquare,
   Settings,
@@ -36,6 +39,7 @@ export default function Sidebar() {
   } = useMeetingStore();
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [workspaceListManuallyOpen, setWorkspaceListManuallyOpen] = useState(false);
   const [workspaceModalState, setWorkspaceModalState] = useState<{
     mode: 'create' | 'edit';
     workspaceId?: string;
@@ -162,6 +166,8 @@ export default function Sidebar() {
     { href: '/', label: '首页', icon: Home },
     { href: '/chat', label: 'AI 对话', icon: MessageSquare },
   ];
+  const isWorkspaceRoute = pathname.startsWith('/workspace');
+  const workspaceListExpanded = isWorkspaceRoute || workspaceListManuallyOpen;
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/';
@@ -206,92 +212,124 @@ export default function Sidebar() {
 
       {/* Workspaces */}
       <div className="mt-4 px-2">
-        <div className="mb-1.5 flex items-center justify-between px-3">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#A69B8F]">工作区</span>
+        <div className="mb-1.5 flex items-center gap-1">
           <button
+            type="button"
+            onClick={() => {
+              setWorkspaceListManuallyOpen(true);
+              router.push('/workspace');
+              setMobileOpen(false);
+            }}
+            className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+              isWorkspaceRoute
+                ? 'bg-white text-[#3A2E25] shadow-sm border border-[#E3D9CE]/50'
+                : 'text-[#5C4D42] hover:bg-[#EFE9E2]'
+            }`}
+          >
+            <Briefcase size={16} />
+            <span className="min-w-0 flex-1 truncate text-left">工作区</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setWorkspaceListManuallyOpen((prev) => !prev)}
+            aria-label={workspaceListExpanded ? '收起工作区列表' : '展开工作区列表'}
+            className="rounded-xl p-2 text-[#8C7A6B] transition-colors hover:bg-[#EFE9E2] hover:text-[#5C4D42]"
+          >
+            {workspaceListExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+          </button>
+          <button
+            type="button"
             onClick={() => setWorkspaceModalState({ mode: 'create' })}
             aria-label="创建工作区"
-            className="rounded-md p-1 text-[#A69B8F] hover:bg-[#EFE9E2] hover:text-[#5C4D42]"
+            className="rounded-xl p-2 text-[#A69B8F] transition-colors hover:bg-[#EFE9E2] hover:text-[#5C4D42]"
           >
-            <Plus size={13} />
+            <Plus size={15} />
           </button>
         </div>
 
-        <div className="space-y-0.5">
-          {workspaces.map((ws) => (
-            <div
-              key={ws.id}
-              ref={(node) => {
-                workspaceItemRefs.current[ws.id] = node;
-              }}
-              className="group relative"
-            >
-              <div
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setDragOverWorkspaceId(ws.id);
-                }}
-                onDragLeave={() => {
-                  setDragOverWorkspaceId((prev) => (prev === ws.id ? null : prev));
-                }}
-                onDrop={(event) => {
-                  event.preventDefault();
-                  const meetingIdValue = event.dataTransfer.getData('text/meeting-id');
-                  if (!meetingIdValue) return;
-                  void handleWorkspaceDrop(ws.id, meetingIdValue);
-                }}
-                className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all ${
-                  ws.id === currentWorkspaceId
-                    ? 'bg-white font-semibold text-[#3A2E25] shadow-sm border border-[#E3D9CE]/50'
-                    : 'text-[#5C4D42] hover:bg-[#EFE9E2]'
-                } ${
-                  highlightedWorkspaceId === ws.id
-                    ? 'ring-2 ring-[#E9D7B8] ring-offset-2 ring-offset-[#F7F3EE] shadow-[0_12px_24px_rgba(191,156,100,0.18)]'
-                    : ''
-                } ${
-                  dragOverWorkspaceId === ws.id
-                    ? 'ring-2 ring-sky-300 ring-offset-1 ring-offset-[#F7F3EE]'
-                    : ''
-                }`}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleSwitch(ws.id)}
-                  className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+        {workspaceListExpanded ? (
+          <div className="space-y-0.5 border-l border-[#E3D9CE] pl-3 ml-3">
+            {workspaces.map((ws) => {
+              const workspaceSelected =
+                pathname === `/workspace/${ws.id}` ||
+                (!isWorkspaceRoute && ws.id === currentWorkspaceId);
+
+              return (
+                <div
+                  key={ws.id}
+                  ref={(node) => {
+                    workspaceItemRefs.current[ws.id] = node;
+                  }}
+                  className="group relative"
                 >
-                  <WorkspaceIconBadge icon={ws.icon} color={ws.color} size="sm" />
-                  <span className="min-w-0 flex-1 truncate">{ws.name}</span>
-                </button>
-                <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setWorkspaceModalState({ mode: 'edit', workspaceId: ws.id });
+                  <div
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setDragOverWorkspaceId(ws.id);
                     }}
-                    className="rounded-md p-1 text-[#8C7A6B] hover:bg-[#EFE9E2] hover:text-[#5C4D42]"
-                    aria-label={`编辑工作区 ${ws.name}`}
+                    onDragLeave={() => {
+                      setDragOverWorkspaceId((prev) => (prev === ws.id ? null : prev));
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const meetingIdValue = event.dataTransfer.getData('text/meeting-id');
+                      if (!meetingIdValue) return;
+                      void handleWorkspaceDrop(ws.id, meetingIdValue);
+                    }}
+                    className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all ${
+                      workspaceSelected
+                        ? 'bg-white font-semibold text-[#3A2E25] shadow-sm border border-[#E3D9CE]/50'
+                        : 'text-[#5C4D42] hover:bg-[#EFE9E2]'
+                    } ${
+                      highlightedWorkspaceId === ws.id
+                        ? 'ring-2 ring-[#E9D7B8] ring-offset-2 ring-offset-[#F7F3EE] shadow-[0_12px_24px_rgba(191,156,100,0.18)]'
+                        : ''
+                    } ${
+                      dragOverWorkspaceId === ws.id
+                        ? 'ring-2 ring-sky-300 ring-offset-1 ring-offset-[#F7F3EE]'
+                        : ''
+                    }`}
                   >
-                    <Pencil size={11} />
-                  </button>
-                  {workspaces.length > 1 && (
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handleDelete(ws.id);
-                      }}
-                      className="rounded-md p-1 text-[#8C7A6B] hover:bg-red-50 hover:text-red-500"
-                      aria-label={`删除工作区 ${ws.name}`}
+                      onClick={() => handleSwitch(ws.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
                     >
-                      <Trash2 size={11} />
+                      <WorkspaceIconBadge icon={ws.icon} color={ws.color} size="sm" />
+                      <span className="min-w-0 flex-1 truncate">{ws.name}</span>
                     </button>
-                  )}
+                    <div className="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setWorkspaceModalState({ mode: 'edit', workspaceId: ws.id });
+                        }}
+                        className="rounded-md p-1 text-[#8C7A6B] hover:bg-[#EFE9E2] hover:text-[#5C4D42]"
+                        aria-label={`编辑工作区 ${ws.name}`}
+                      >
+                        <Pencil size={11} />
+                      </button>
+                      {workspaces.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDelete(ws.id);
+                          }}
+                          className="rounded-md p-1 text-[#8C7A6B] hover:bg-red-50 hover:text-red-500"
+                          aria-label={`删除工作区 ${ws.name}`}
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
+              );
+            })}
+          </div>
+        ) : null}
       </div>
 
       {/* Spacer */}

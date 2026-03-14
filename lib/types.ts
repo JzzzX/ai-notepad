@@ -64,6 +64,11 @@ export interface Workspace {
   sortOrder: number;
 }
 
+export interface WorkspaceOverviewItem extends Workspace {
+  meetingCount: number;
+  latestMeetingAt?: string | null;
+}
+
 export type CustomVocabularyScope = 'global' | 'workspace';
 
 export interface AsrVocabularySyncStatus {
