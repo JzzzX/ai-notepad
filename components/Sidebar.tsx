@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -31,6 +31,24 @@ function clampSidebarWidth(value: number) {
   return Math.min(DESKTOP_SIDEBAR_MAX_WIDTH, Math.max(DESKTOP_SIDEBAR_MIN_WIDTH, value));
 }
 
+function subscribeToStorage(onStoreChange: () => void) {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const handler = () => onStoreChange();
+  window.addEventListener('storage', handler);
+  return () => window.removeEventListener('storage', handler);
+}
+
+function useHydrated() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+}
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -49,9 +67,27 @@ export default function Sidebar() {
   } = useMeetingStore();
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [workspaceListExpanded, setWorkspaceListExpanded] = useState(false);
-  const [desktopWidth, setDesktopWidth] = useState(DESKTOP_SIDEBAR_DEFAULT_WIDTH);
-  const [mounted, setMounted] = useState(false);
+  const hydrated = useHydrated();
+  const persistedWorkspaceListExpanded = useSyncExternalStore(
+    subscribeToStorage,
+    () =>
+      typeof window !== 'undefined' &&
+      window.localStorage.getItem(WORKSPACE_EXPANDED_STORAGE_KEY) === 'true',
+    () => false
+  );
+  const persistedDesktopWidth = useSyncExternalStore(
+    subscribeToStorage,
+    () => {
+      if (typeof window === 'undefined') return DESKTOP_SIDEBAR_DEFAULT_WIDTH;
+      const rawWidth = Number(window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY));
+      return Number.isFinite(rawWidth)
+        ? clampSidebarWidth(rawWidth)
+        : DESKTOP_SIDEBAR_DEFAULT_WIDTH;
+    },
+    () => DESKTOP_SIDEBAR_DEFAULT_WIDTH
+  );
+  const [workspaceListExpandedOverride, setWorkspaceListExpandedOverride] = useState<boolean | null>(null);
+  const [desktopWidthOverride, setDesktopWidthOverride] = useState<number | null>(null);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [workspaceModalState, setWorkspaceModalState] = useState<{
     mode: 'create' | 'edit';
@@ -65,17 +101,9 @@ export default function Sidebar() {
     workspaceModalState?.mode === 'edit'
       ? workspaces.find((workspace) => workspace.id === workspaceModalState.workspaceId) || null
       : null;
-
-  useEffect(() => {
-    setMounted(true);
-    if (typeof window !== 'undefined') {
-      setWorkspaceListExpanded(window.localStorage.getItem(WORKSPACE_EXPANDED_STORAGE_KEY) === 'true');
-      const rawWidth = Number(window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY));
-      if (Number.isFinite(rawWidth)) {
-        setDesktopWidth(clampSidebarWidth(rawWidth));
-      }
-    }
-  }, []);
+  const workspaceListExpanded =
+    workspaceListExpandedOverride ?? (hydrated ? persistedWorkspaceListExpanded : false);
+  const desktopWidth = desktopWidthOverride ?? (hydrated ? persistedDesktopWidth : DESKTOP_SIDEBAR_DEFAULT_WIDTH);
 
   useEffect(() => {
     void loadWorkspaces();
@@ -101,26 +129,15 @@ export default function Sidebar() {
   }, [highlightedWorkspaceId, workspaces]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(
-      WORKSPACE_EXPANDED_STORAGE_KEY,
-      workspaceListExpanded ? 'true' : 'false'
-    );
-  }, [workspaceListExpanded]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(desktopWidth));
-  }, [desktopWidth]);
-
-  useEffect(() => {
     if (!isResizingSidebar) return;
 
     const handlePointerMove = (event: PointerEvent) => {
       const resizeState = resizeStateRef.current;
       if (!resizeState) return;
       const delta = event.clientX - resizeState.startX;
-      setDesktopWidth(clampSidebarWidth(resizeState.startWidth + delta));
+      const nextWidth = clampSidebarWidth(resizeState.startWidth + delta);
+      setDesktopWidthOverride(nextWidth);
+      window.localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(nextWidth));
     };
 
     const handlePointerUp = () => {
@@ -247,6 +264,16 @@ export default function Sidebar() {
     setIsResizingSidebar(true);
   };
 
+  const updateWorkspaceListExpanded = (nextValue: boolean) => {
+    setWorkspaceListExpandedOverride(nextValue);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(
+        WORKSPACE_EXPANDED_STORAGE_KEY,
+        nextValue ? 'true' : 'false'
+      );
+    }
+  };
+
   const sidebarContent = (
     <div className="flex h-full flex-col bg-[#F7F3EE]">
       {/* Logo */}
@@ -290,11 +317,11 @@ export default function Sidebar() {
           <div className={`mt-1 flex min-h-0 flex-1 flex-col transition-all duration-200 ${workspaceListExpanded ? 'rounded-[24px] bg-white/42 px-1.5 py-2' : ''}`}>
             <div className={`flex items-center gap-1 ${workspaceListExpanded ? 'px-1' : ''}`}>
               <button
-                type="button"
-                onClick={() => {
-                  router.push('/workspace');
-                  setMobileOpen(false);
-                }}
+              type="button"
+              onClick={() => {
+                router.push('/workspace');
+                setMobileOpen(false);
+              }}
                 className={`flex min-w-0 flex-1 items-center gap-3 rounded-2xl px-3 py-2.5 text-[15px] font-medium transition-all ${
                   isWorkspaceRoute
                     ? 'border border-[#E3D9CE]/60 bg-white text-[#3A2E25] shadow-[0_8px_22px_rgba(58,46,37,0.08)]'
@@ -306,7 +333,7 @@ export default function Sidebar() {
               </button>
               <button
                 type="button"
-                onClick={() => setWorkspaceListExpanded((prev) => !prev)}
+                onClick={() => updateWorkspaceListExpanded(!workspaceListExpanded)}
                 aria-label={workspaceListExpanded ? '收起工作区列表' : '展开工作区列表'}
                 className="rounded-2xl p-2 text-[#8C7A6B] transition-colors hover:bg-white/65 hover:text-[#5C4D42]"
               >

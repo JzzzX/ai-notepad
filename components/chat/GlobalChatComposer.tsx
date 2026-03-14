@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Loader2, Mic, Send, SlidersHorizontal } from 'lucide-react';
-import { buildRecipeCommandItems, type GlobalChatRecipe } from '@/lib/global-chat-ui';
-import type { Folder, GlobalChatFilters, GlobalChatScope, Template } from '@/lib/types';
+import { buildGlobalChatCatalogItems, type GlobalChatRecipe } from '@/lib/global-chat-ui';
+import type { Folder, GlobalChatFilters, GlobalChatScope, Template, Workspace } from '@/lib/types';
 
 export interface GlobalChatSubmitPayload {
   displayText?: string;
@@ -11,6 +11,7 @@ export interface GlobalChatSubmitPayload {
   templatePrompt?: string;
   templateId?: string;
   nextScope?: GlobalChatScope;
+  workspaceId?: string | null;
 }
 
 interface GlobalChatComposerProps {
@@ -18,16 +19,29 @@ interface GlobalChatComposerProps {
   input: string;
   onInputChange: (value: string) => void;
   onSubmit: (payload?: GlobalChatSubmitPayload) => void | Promise<void>;
-  scope: GlobalChatScope;
-  onScopeChange: (scope: GlobalChatScope) => void;
+  selectedWorkspaceId: string | null;
+  onSelectedWorkspaceChange: (workspaceId: string | null) => void;
+  preferredWorkspaceId?: string | null;
+  workspaces: Workspace[];
   filters: GlobalChatFilters;
   onFiltersChange: (filters: GlobalChatFilters) => void;
   templates: Template[];
   folders: Folder[];
-  currentWorkspaceName?: string | null;
   disabled?: boolean;
   loading?: boolean;
   placeholder: string;
+}
+
+function accentClass(accent: 'lime' | 'amber' | 'sky' | 'violet') {
+  if (accent === 'lime') return 'bg-lime-400';
+  if (accent === 'sky') return 'bg-sky-400';
+  if (accent === 'violet') return 'bg-violet-400';
+  return 'bg-amber-400';
+}
+
+function workspaceLabel(selectedWorkspaceId: string | null, workspaces: Workspace[]) {
+  if (!selectedWorkspaceId) return '全部工作区';
+  return workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name || '指定工作区';
 }
 
 export default function GlobalChatComposer({
@@ -35,13 +49,14 @@ export default function GlobalChatComposer({
   input,
   onInputChange,
   onSubmit,
-  scope,
-  onScopeChange,
+  selectedWorkspaceId,
+  onSelectedWorkspaceChange,
+  preferredWorkspaceId = null,
+  workspaces,
   filters,
   onFiltersChange,
   templates,
   folders,
-  currentWorkspaceName,
   disabled = false,
   loading = false,
   placeholder,
@@ -57,7 +72,7 @@ export default function GlobalChatComposer({
   const commandQuery = input.startsWith('/') ? input.slice(1) : '';
   const showCommands = input.startsWith('/') && !commandsDismissed;
   const commandItems = useMemo(() => {
-    const merged = buildRecipeCommandItems(templates);
+    const merged = buildGlobalChatCatalogItems(templates);
     const q = commandQuery.trim().toLowerCase();
     if (!q) return merged;
     return merged.filter((item) =>
@@ -66,6 +81,13 @@ export default function GlobalChatComposer({
         .some((value) => value.toLowerCase().includes(q))
     );
   }, [commandQuery, templates]);
+  const groupedCommandItems = useMemo(
+    () => ({
+      recipes: commandItems.filter((item) => item.group === 'recipes'),
+      templates: commandItems.filter((item) => item.group === 'templates'),
+    }),
+    [commandItems]
+  );
 
   useEffect(() => {
     return () => {
@@ -86,6 +108,12 @@ export default function GlobalChatComposer({
   useEffect(() => {
     resizeInput();
   }, [input, resizeInput]);
+
+  useEffect(() => {
+    if (selectedWorkspaceId) return;
+    if (!filters.folderId) return;
+    onFiltersChange({ ...filters, folderId: '' });
+  }, [filters, onFiltersChange, selectedWorkspaceId]);
 
   const stopDictation = useCallback(() => {
     if (recognitionRef.current) {
@@ -138,7 +166,7 @@ export default function GlobalChatComposer({
     recognition.start();
     recognitionRef.current = recognition;
     setIsDictating(true);
-  }, [input, onInputChange, isDictating, stopDictation]);
+  }, [input, isDictating, onInputChange, stopDictation]);
 
   const handleTextChange = (value: string) => {
     if (!value.startsWith('/')) {
@@ -156,13 +184,19 @@ export default function GlobalChatComposer({
   };
 
   const selectRecipe = async (recipe: GlobalChatRecipe) => {
-    onScopeChange(recipe.scope);
+    const recipeWorkspaceId =
+      recipe.scope === 'my_notes'
+        ? selectedWorkspaceId || preferredWorkspaceId || workspaces[0]?.id || null
+        : null;
+
+    onSelectedWorkspaceChange(recipeWorkspaceId);
     onInputChange('');
     setCommandsDismissed(false);
     await onSubmit({
       displayText: recipe.title,
       question: recipe.prompt,
-      nextScope: recipe.scope,
+      nextScope: recipeWorkspaceId ? recipe.scope : 'all_meetings',
+      workspaceId: recipeWorkspaceId,
     });
   };
 
@@ -174,6 +208,8 @@ export default function GlobalChatComposer({
       question: template.name,
       templatePrompt: template.prompt,
       templateId: template.id,
+      nextScope: selectedWorkspaceId ? 'my_notes' : 'all_meetings',
+      workspaceId: selectedWorkspaceId,
     });
   };
 
@@ -195,9 +231,9 @@ export default function GlobalChatComposer({
         event.preventDefault();
         const selected = commandItems[Math.min(selectedIdx, Math.max(commandItems.length - 1, 0))];
         if (!selected) return;
-        if (selected.type === 'recipe') {
+        if (selected.type === 'recipe' && selected.recipe) {
           await selectRecipe(selected.recipe);
-        } else {
+        } else if (selected.template) {
           await selectTemplate(selected.template);
         }
         return;
@@ -220,51 +256,49 @@ export default function GlobalChatComposer({
       ? 'rounded-[28px] border border-[#D8CEC4] bg-white p-4 shadow-[0_12px_36px_rgba(58,46,37,0.08)]'
       : 'rounded-[24px] border border-[#D8CEC4] bg-white p-3 shadow-[0_12px_30px_rgba(58,46,37,0.08)]';
   const activeCommandIdx = Math.min(selectedIdx, Math.max(commandItems.length - 1, 0));
+  const selectedWorkspaceLabel = workspaceLabel(selectedWorkspaceId, workspaces);
 
   return (
     <div className="relative">
       <div className={cardClassName}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-full border border-[#E3D9CE] bg-[#F8F4EF] p-1 text-[12px]">
-            <button
-              type="button"
-              onClick={() => onScopeChange('my_notes')}
-              className={`rounded-full px-3 py-1.5 transition-all ${
-                scope === 'my_notes'
-                  ? 'bg-white text-[#3A2E25] shadow-sm'
-                  : 'text-[#8C7A6B]'
-              }`}
+          <label className="relative">
+            <span className="sr-only">选择聊天工作区范围</span>
+            <select
+              value={selectedWorkspaceId || '__all__'}
+              onChange={(event) =>
+                onSelectedWorkspaceChange(
+                  event.target.value === '__all__' ? null : event.target.value
+                )
+              }
+              className="appearance-none rounded-full border border-[#E3D9CE] bg-[#F8F4EF] px-4 py-2 pr-10 text-[12px] text-[#3A2E25] focus:border-[#BFAE9E] focus:outline-none"
             >
-              我的笔记
-            </button>
-            <button
-              type="button"
-              onClick={() => onScopeChange('all_meetings')}
-              className={`rounded-full px-3 py-1.5 transition-all ${
-                scope === 'all_meetings'
-                  ? 'bg-white text-[#3A2E25] shadow-sm'
-                  : 'text-[#8C7A6B]'
-              }`}
-            >
-              全部会议
-            </button>
-          </div>
+              <option value="__all__">全部工作区</option>
+              {workspaces.map((workspace) => (
+                <option key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              size={12}
+              className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#8C7A6B]"
+            />
+          </label>
 
           <button
             type="button"
             onClick={() => setShowContext((value) => !value)}
-            className="inline-flex items-center gap-1 rounded-full border border-[#E3D9CE] bg-[#FBF8F4] px-3 py-1.5 text-[12px] text-[#6B5C50] transition-colors hover:bg-white"
+            className="inline-flex items-center gap-1 rounded-full border border-[#E3D9CE] bg-[#FBF8F4] px-3 py-2 text-[12px] text-[#6B5C50] transition-colors hover:bg-white"
           >
             <SlidersHorizontal size={13} />
             Add context
             <ChevronDown size={12} />
           </button>
 
-          {scope === 'my_notes' && currentWorkspaceName ? (
-            <span className="rounded-full bg-[#F1EBE3] px-3 py-1.5 text-[12px] text-[#8C7A6B]">
-              当前工作区：{currentWorkspaceName}
-            </span>
-          ) : null}
+          <span className="rounded-full bg-[#F1EBE3] px-3 py-2 text-[12px] text-[#8C7A6B]">
+            {selectedWorkspaceLabel}
+          </span>
         </div>
 
         <div className="flex items-end gap-2">
@@ -309,7 +343,7 @@ export default function GlobalChatComposer({
         </div>
       </div>
 
-      {showContext && (
+      {showContext ? (
         <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-20 rounded-[24px] border border-[#E3D9CE] bg-[#FCFAF7] p-4 shadow-[0_22px_48px_rgba(58,46,37,0.14)]">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-[12px] text-[#8C7A6B]">
@@ -323,24 +357,32 @@ export default function GlobalChatComposer({
                 className="mt-1.5 w-full rounded-xl border border-[#E3D9CE] bg-white px-3 py-2.5 text-sm text-[#3A2E25] focus:border-[#BFAE9E] focus:outline-none"
               />
             </label>
-            <label className="text-[12px] text-[#8C7A6B]">
-              文件夹
-              <select
-                value={filters.folderId || ''}
-                onChange={(event) =>
-                  onFiltersChange({ ...filters, folderId: event.target.value })
-                }
-                className="mt-1.5 w-full rounded-xl border border-[#E3D9CE] bg-white px-3 py-2.5 text-sm text-[#3A2E25] focus:border-[#BFAE9E] focus:outline-none"
-              >
-                <option value="">全部会议</option>
-                <option value="__ungrouped">未分组</option>
-                {folders.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+
+            {selectedWorkspaceId ? (
+              <label className="text-[12px] text-[#8C7A6B]">
+                文件夹
+                <select
+                  value={filters.folderId || ''}
+                  onChange={(event) =>
+                    onFiltersChange({ ...filters, folderId: event.target.value })
+                  }
+                  className="mt-1.5 w-full rounded-xl border border-[#E3D9CE] bg-white px-3 py-2.5 text-sm text-[#3A2E25] focus:border-[#BFAE9E] focus:outline-none"
+                >
+                  <option value="">全部文件夹</option>
+                  <option value="__ungrouped">未分组</option>
+                  {folders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <div className="rounded-xl border border-dashed border-[#E3D9CE] bg-white/70 px-3 py-3 text-[12px] leading-6 text-[#9A8877]">
+                选中全部工作区时，不提供文件夹筛选。
+              </div>
+            )}
+
             <label className="text-[12px] text-[#8C7A6B]">
               开始日期
               <input
@@ -365,62 +407,84 @@ export default function GlobalChatComposer({
             </label>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {showCommands && (
+      {showCommands ? (
         <div className="absolute left-0 right-0 top-[calc(100%+12px)] z-30 overflow-hidden rounded-[24px] border border-[#E3D9CE] bg-white shadow-[0_24px_60px_rgba(58,46,37,0.16)]">
           <div className="border-b border-[#EFE7DE] px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-[#A69B8F]">
-            Skills & Recipes
+            Recipes & Templates
           </div>
-          <div className="max-h-[320px] overflow-y-auto p-2">
+          <div className="max-h-[360px] overflow-y-auto p-2">
             {commandItems.length === 0 ? (
               <div className="px-4 py-6 text-sm text-[#A69B8F]">没有匹配的技能</div>
             ) : (
-              commandItems.map((item, index) => (
-                <button
-                  key={`${item.type}-${item.id}`}
-                  type="button"
-                  onClick={() => {
-                    void (item.type === 'recipe'
-                      ? selectRecipe(item.recipe)
-                      : selectTemplate(item.template));
-                  }}
-                  className={`flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-all ${
-                    index === activeCommandIdx ? 'bg-[#F7F3EE]' : 'hover:bg-[#FBF8F4]'
-                  }`}
-                >
-                  <div
-                    className={`mt-0.5 h-8 w-1.5 rounded-full ${
-                      item.accent === 'lime'
-                        ? 'bg-lime-400'
-                        : item.accent === 'sky'
-                          ? 'bg-sky-400'
-                          : item.accent === 'violet'
-                            ? 'bg-violet-400'
-                            : 'bg-amber-400'
-                    }`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[14px] font-semibold text-[#3A2E25]">
-                        {item.label}
-                      </span>
-                      {item.type === 'template' && item.command ? (
-                        <code className="rounded-md bg-[#F7F3EE] px-1.5 py-0.5 text-[10px] text-[#8C7A6B]">
-                          {item.command}
-                        </code>
-                      ) : null}
+              <div className="space-y-3">
+                {([
+                  ['recipes', 'Recipes'],
+                  ['templates', 'Templates'],
+                ] as const).map(([group, label]) => {
+                  const items = groupedCommandItems[group];
+                  if (items.length === 0) return null;
+
+                  return (
+                    <div key={group}>
+                      <div className="px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-[#B4A79A]">
+                        {label}
+                      </div>
+                      <div className="space-y-1">
+                        {items.map((item) => {
+                          const index = commandItems.findIndex(
+                            (candidate) => candidate.type === item.type && candidate.id === item.id
+                          );
+
+                          return (
+                            <button
+                              key={`${item.type}-${item.id}`}
+                              type="button"
+                              onClick={() => {
+                                void (item.type === 'recipe' && item.recipe
+                                  ? selectRecipe(item.recipe)
+                                  : item.template
+                                    ? selectTemplate(item.template)
+                                    : Promise.resolve());
+                              }}
+                              className={`flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition-all ${
+                                index === activeCommandIdx ? 'bg-[#F7F3EE]' : 'hover:bg-[#FBF8F4]'
+                              }`}
+                            >
+                              <div
+                                className={`mt-0.5 h-8 w-1.5 rounded-full ${accentClass(item.accent)}`}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-[14px] font-semibold text-[#3A2E25]">
+                                    {item.label}
+                                  </span>
+                                  {item.command ? (
+                                    <code className="rounded-md bg-[#F7F3EE] px-1.5 py-0.5 text-[10px] text-[#8C7A6B]">
+                                      {item.command}
+                                    </code>
+                                  ) : null}
+                                  <span className="rounded-full bg-[#F1EBE3] px-2 py-0.5 text-[10px] text-[#8C7A6B]">
+                                    {item.type === 'recipe' ? 'Recipe' : '模板'}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-[12px] leading-5 text-[#8C7A6B]">
+                                  {item.description}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <p className="mt-1 text-[12px] leading-5 text-[#8C7A6B]">
-                      {item.description}
-                    </p>
-                  </div>
-                </button>
-              ))
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

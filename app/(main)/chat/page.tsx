@@ -1,18 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Clock3, MessageSquareText, Sparkles } from 'lucide-react';
+import { ArrowRight, Clock3, Sparkles } from 'lucide-react';
 import GlobalChatComposer, {
   type GlobalChatSubmitPayload,
 } from '@/components/chat/GlobalChatComposer';
 import {
   GLOBAL_CHAT_DRAFT_KEY,
-  GLOBAL_CHAT_RECIPES,
+  getFeaturedGlobalChatRecipes,
+  getGlobalChatScopeLabel,
+  resolveGlobalChatScope,
   type GlobalChatDraft,
 } from '@/lib/global-chat-ui';
 import { useMeetingStore } from '@/lib/store';
-import type { GlobalChatFilters, GlobalChatScope, GlobalChatSessionSummary, Template } from '@/lib/types';
+import type {
+  Folder,
+  GlobalChatFilters,
+  GlobalChatSessionSummary,
+  Template,
+} from '@/lib/types';
 
 function formatRelativeTime(value: string) {
   const date = new Date(value);
@@ -34,36 +42,35 @@ function formatRelativeTime(value: string) {
   return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
 }
 
-function scopeLabel(scope: GlobalChatScope) {
-  return scope === 'my_notes' ? '我的笔记' : '全部会议';
-}
-
 export default function ChatHomePage() {
   const router = useRouter();
   const {
     currentWorkspaceId,
     workspaces,
-    folders,
-    loadFolders,
     loadWorkspaces,
   } = useMeetingStore();
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [sessions, setSessions] = useState<GlobalChatSessionSummary[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [input, setInput] = useState('');
-  const [scope, setScope] = useState<GlobalChatScope>('my_notes');
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [filters, setFilters] = useState<GlobalChatFilters>({});
   const [isBooting, setIsBooting] = useState(true);
   const [isLaunching, setIsLaunching] = useState(false);
+  const selectionInitializedRef = useRef(false);
 
   useEffect(() => {
     void loadWorkspaces();
-    void loadFolders();
-  }, [loadFolders, loadWorkspaces]);
+  }, [loadWorkspaces]);
 
   useEffect(() => {
-    void loadFolders();
-  }, [currentWorkspaceId, loadFolders]);
+    if (selectionInitializedRef.current) return;
+    if (workspaces.length === 0 && !currentWorkspaceId) return;
+
+    setSelectedWorkspaceId(currentWorkspaceId || workspaces[0]?.id || null);
+    selectionInitializedRef.current = true;
+  }, [currentWorkspaceId, workspaces]);
 
   useEffect(() => {
     let active = true;
@@ -72,7 +79,7 @@ export default function ChatHomePage() {
       try {
         const [templatesRes, sessionsRes] = await Promise.all([
           fetch('/api/templates'),
-          fetch('/api/chat/sessions'),
+          fetch('/api/chat/sessions?limit=5'),
         ]);
 
         if (!active) return;
@@ -99,26 +106,54 @@ export default function ChatHomePage() {
     };
   }, []);
 
-  const currentWorkspaceName = useMemo(
-    () => workspaces.find((workspace) => workspace.id === currentWorkspaceId)?.name || null,
-    [currentWorkspaceId, workspaces]
-  );
+  useEffect(() => {
+    let active = true;
+
+    const loadScopedFolders = async () => {
+      if (!selectedWorkspaceId) {
+        setFolders([]);
+        setFilters((prev) => (prev.folderId ? { ...prev, folderId: '' } : prev));
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/folders?workspaceId=${selectedWorkspaceId}`);
+        if (!res.ok || !active) return;
+        const data = (await res.json()) as Folder[];
+        setFolders(data);
+        setFilters((prev) =>
+          prev.folderId && !data.some((folder) => folder.id === prev.folderId)
+            ? { ...prev, folderId: '' }
+            : prev
+        );
+      } catch (error) {
+        console.error('Load chat folders failed:', error);
+      }
+    };
+
+    void loadScopedFolders();
+    return () => {
+      active = false;
+    };
+  }, [selectedWorkspaceId]);
 
   const handleLaunch = useCallback(
     async (payload?: GlobalChatSubmitPayload) => {
-      const nextScope = payload?.nextScope || scope;
       const nextQuestion = (payload?.question || input).trim();
       if (!nextQuestion || isLaunching) return;
 
       setIsLaunching(true);
 
+      const nextWorkspaceId =
+        payload?.workspaceId !== undefined ? payload.workspaceId : selectedWorkspaceId;
+      const nextScope = payload?.nextScope || resolveGlobalChatScope(nextWorkspaceId);
       const draft: GlobalChatDraft = {
         displayText: payload?.displayText || nextQuestion,
         question: nextQuestion,
         templatePrompt: payload?.templatePrompt,
         templateId: payload?.templateId,
         scope: nextScope,
-        workspaceId: nextScope === 'my_notes' ? currentWorkspaceId || null : null,
+        workspaceId: nextScope === 'my_notes' ? nextWorkspaceId : null,
         filters,
       };
 
@@ -126,8 +161,10 @@ export default function ChatHomePage() {
       setInput('');
       router.push('/chat/new');
     },
-    [currentWorkspaceId, filters, input, isLaunching, router, scope]
+    [filters, input, isLaunching, router, selectedWorkspaceId]
   );
+
+  const featuredRecipes = useMemo(() => getFeaturedGlobalChatRecipes(), []);
 
   return (
     <div className="min-h-full bg-[#F6F2EB]">
@@ -142,7 +179,7 @@ export default function ChatHomePage() {
               Ask anything
             </h1>
             <p className="mt-3 max-w-[560px] text-[15px] leading-7 text-[#7C6B5C]">
-              直接问会议、笔记和行动项。支持 recipes、一键模板和跨会议检索。
+              直接问会议、笔记和行动项。支持 recipes、模板命令和跨工作区检索。
             </p>
 
             <div className="mt-8">
@@ -150,15 +187,16 @@ export default function ChatHomePage() {
                 input={input}
                 onInputChange={setInput}
                 onSubmit={handleLaunch}
-                scope={scope}
-                onScopeChange={setScope}
+                selectedWorkspaceId={selectedWorkspaceId}
+                onSelectedWorkspaceChange={setSelectedWorkspaceId}
+                preferredWorkspaceId={currentWorkspaceId || workspaces[0]?.id || null}
+                workspaces={workspaces}
                 filters={filters}
                 onFiltersChange={setFilters}
                 templates={templates}
                 folders={folders}
-                currentWorkspaceName={currentWorkspaceName}
                 loading={isLaunching}
-                placeholder="问昨天聊了什么、哪些决定还没落地，或者输入 / 调用模板"
+                placeholder="问昨天聊了什么、哪些决定还没落地，或者输入 / 命令"
               />
             </div>
           </div>
@@ -169,20 +207,19 @@ export default function ChatHomePage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <h2 className="font-song text-[24px] text-[#3A2E25]">Recipes</h2>
-                <p className="mt-1 text-sm text-[#8C7A6B]">常见问题一键开聊，减少空白输入成本。</p>
+                <p className="mt-1 text-sm text-[#8C7A6B]">常见问题一键开聊，也支持用命令直接调用。</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setInput('/')}
+              <Link
+                href="/chat/recipes"
                 className="inline-flex items-center gap-1 rounded-full border border-[#D8CEC4] bg-[#FBF8F4] px-3 py-2 text-sm text-[#6B5C50] transition-colors hover:bg-white"
               >
                 See all
                 <ArrowRight size={14} />
-              </button>
+              </Link>
             </div>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {GLOBAL_CHAT_RECIPES.map((recipe) => (
+              {featuredRecipes.map((recipe) => (
                 <button
                   key={recipe.id}
                   type="button"
@@ -191,6 +228,10 @@ export default function ChatHomePage() {
                       displayText: recipe.title,
                       question: recipe.prompt,
                       nextScope: recipe.scope,
+                      workspaceId:
+                        recipe.scope === 'my_notes'
+                          ? selectedWorkspaceId || currentWorkspaceId || workspaces[0]?.id || null
+                          : null,
                     })
                   }
                   className="group rounded-[24px] border border-[#E9E1D7] bg-[#FCFAF7] p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[#D8CEC4] hover:shadow-[0_16px_32px_rgba(58,46,37,0.08)]"
@@ -208,7 +249,12 @@ export default function ChatHomePage() {
                       }`}
                     />
                     <div className="min-w-0">
-                      <div className="text-[15px] font-semibold text-[#3A2E25]">{recipe.title}</div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-[15px] font-semibold text-[#3A2E25]">{recipe.title}</div>
+                        <code className="rounded-md bg-[#F7F3EE] px-1.5 py-0.5 text-[10px] text-[#8C7A6B]">
+                          {recipe.command}
+                        </code>
+                      </div>
                       <div className="mt-1 text-[13px] leading-6 text-[#8C7A6B]">
                         {recipe.description}
                       </div>
@@ -225,7 +271,13 @@ export default function ChatHomePage() {
                 <h2 className="font-song text-[24px] text-[#3A2E25]">Recent Chats</h2>
                 <p className="mt-1 text-sm text-[#8C7A6B]">继续最近的问题，不用重新描述上下文。</p>
               </div>
-              <MessageSquareText size={18} className="text-[#B9A999]" />
+              <Link
+                href="/chat/history"
+                className="inline-flex items-center gap-1 rounded-full border border-[#D8CEC4] bg-[#FBF8F4] px-3 py-2 text-sm text-[#6B5C50] transition-colors hover:bg-white"
+              >
+                See all
+                <ArrowRight size={14} />
+              </Link>
             </div>
 
             <div className="mt-5 space-y-3">
@@ -241,13 +293,8 @@ export default function ChatHomePage() {
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-[#8C7A6B]">
                     <span className="rounded-full bg-[#F1EBE3] px-2.5 py-1">
-                      {scopeLabel(session.scope)}
+                      {getGlobalChatScopeLabel(session.scope, session.workspace?.name)}
                     </span>
-                    {session.workspace ? (
-                      <span className="rounded-full bg-[#F7F3EE] px-2.5 py-1">
-                        {session.workspace.name}
-                      </span>
-                    ) : null}
                     <span className="inline-flex items-center gap-1">
                       <Clock3 size={12} />
                       {formatRelativeTime(session.updatedAt)}

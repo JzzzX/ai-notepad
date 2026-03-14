@@ -11,21 +11,19 @@ import {
   GLOBAL_CHAT_DRAFT_KEY,
   buildGlobalChatRetrievalFilters,
   buildGlobalChatSessionTitle,
+  getGlobalChatScopeLabel,
+  resolveGlobalChatScope,
   type GlobalChatDraft,
 } from '@/lib/global-chat-ui';
 import { chatAcrossMeetings } from '@/lib/llm';
 import { useMeetingStore } from '@/lib/store';
 import type {
   ChatMessage,
+  Folder,
   GlobalChatFilters,
-  GlobalChatScope,
   GlobalChatSessionDetail,
   Template,
 } from '@/lib/types';
-
-function scopeLabel(scope: GlobalChatScope) {
-  return scope === 'my_notes' ? '我的笔记' : '全部会议';
-}
 
 export default function GlobalChatSessionPage() {
   const params = useParams<{ sessionId: string }>();
@@ -34,19 +32,17 @@ export default function GlobalChatSessionPage() {
   const {
     currentWorkspaceId,
     workspaces,
-    folders,
     promptOptions,
     llmSettings,
-    loadFolders,
     loadWorkspaces,
   } = useMeetingStore();
 
   const [templates, setTemplates] = useState<Template[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(routeSessionId === 'new' ? null : routeSessionId);
   const [title, setTitle] = useState('新对话');
-  const [scope, setScope] = useState<GlobalChatScope>('my_notes');
   const [filters, setFilters] = useState<GlobalChatFilters>({});
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
@@ -65,12 +61,7 @@ export default function GlobalChatSessionPage() {
 
   useEffect(() => {
     void loadWorkspaces();
-    void loadFolders();
-  }, [loadFolders, loadWorkspaces]);
-
-  useEffect(() => {
-    void loadFolders();
-  }, [currentWorkspaceId, loadFolders]);
+  }, [loadWorkspaces]);
 
   useEffect(() => {
     let active = true;
@@ -90,6 +81,37 @@ export default function GlobalChatSessionPage() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadScopedFolders = async () => {
+      if (!selectedWorkspaceId) {
+        setFolders([]);
+        setFilters((prev) => (prev.folderId ? { ...prev, folderId: '' } : prev));
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/folders?workspaceId=${selectedWorkspaceId}`);
+        if (!res.ok || !active) return;
+        const data = (await res.json()) as Folder[];
+        setFolders(data);
+        setFilters((prev) =>
+          prev.folderId && !data.some((folder) => folder.id === prev.folderId)
+            ? { ...prev, folderId: '' }
+            : prev
+        );
+      } catch (loadError) {
+        console.error('Load chat folders failed:', loadError);
+      }
+    };
+
+    void loadScopedFolders();
+    return () => {
+      active = false;
+    };
+  }, [selectedWorkspaceId]);
 
   useEffect(() => {
     let active = true;
@@ -128,11 +150,10 @@ export default function GlobalChatSessionPage() {
           setMessages([]);
           setInput('');
           setTitle(buildGlobalChatSessionTitle(draft.displayText || draft.question));
-          setScope(draft.scope);
           setFilters(draft.filters || {});
-          setWorkspaceId(
+          setSelectedWorkspaceId(
             draft.scope === 'my_notes'
-              ? draft.workspaceId || currentWorkspaceId || null
+              ? draft.workspaceId || currentWorkspaceId || workspaces[0]?.id || null
               : null
           );
           setIsLoadingSession(false);
@@ -156,9 +177,12 @@ export default function GlobalChatSessionPage() {
         setPendingDraft(null);
         setSessionId(session.id);
         setTitle(session.title);
-        setScope(session.scope);
         setFilters(session.filters || {});
-        setWorkspaceId(session.workspaceId);
+        setSelectedWorkspaceId(
+          session.scope === 'my_notes'
+            ? session.workspaceId || currentWorkspaceId || workspaces[0]?.id || null
+            : null
+        );
         setMessages(session.messages);
       } catch (loadError) {
         console.error(loadError);
@@ -177,11 +201,11 @@ export default function GlobalChatSessionPage() {
     return () => {
       active = false;
     };
-  }, [currentWorkspaceId, routeSessionId, router, sessionId]);
+  }, [currentWorkspaceId, routeSessionId, router, sessionId, workspaces]);
 
   const currentWorkspaceName = useMemo(
-    () => workspaces.find((workspace) => workspace.id === workspaceId)?.name || null,
-    [workspaceId, workspaces]
+    () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name || null,
+    [selectedWorkspaceId, workspaces]
   );
 
   useEffect(() => {
@@ -193,8 +217,8 @@ export default function GlobalChatSessionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
-          scope,
-          workspaceId: scope === 'my_notes' ? workspaceId : null,
+          scope: resolveGlobalChatScope(selectedWorkspaceId),
+          workspaceId: selectedWorkspaceId,
           filters,
         }),
       }).catch((patchError) => {
@@ -203,7 +227,7 @@ export default function GlobalChatSessionPage() {
     }, 250);
 
     return () => window.clearTimeout(timer);
-  }, [filters, isLoadingSession, scope, sessionId, title, workspaceId]);
+  }, [filters, isLoadingSession, selectedWorkspaceId, sessionId, title]);
 
   const persistMessage = useCallback(
     async (
@@ -230,11 +254,7 @@ export default function GlobalChatSessionPage() {
   );
 
   const createSessionIfNeeded = useCallback(
-    async (
-      titleSeed: string,
-      nextScope: GlobalChatScope,
-      nextWorkspaceId: string | null
-    ) => {
+    async (titleSeed: string, nextWorkspaceId: string | null) => {
       if (sessionId) return sessionId;
 
       const res = await fetch('/api/chat/sessions', {
@@ -242,8 +262,8 @@ export default function GlobalChatSessionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: titleSeed,
-          scope: nextScope,
-          workspaceId: nextScope === 'my_notes' ? nextWorkspaceId : null,
+          scope: resolveGlobalChatScope(nextWorkspaceId),
+          workspaceId: nextWorkspaceId,
           filters,
         }),
       });
@@ -263,23 +283,17 @@ export default function GlobalChatSessionPage() {
 
   const handleSubmit = useCallback(
     async (payload?: GlobalChatSubmitPayload) => {
-      const nextScope = payload?.nextScope || scope;
       const question = (payload?.question || input).trim();
       if (!question || isSending) return;
       const titleSeed = payload?.displayText || question;
-
       const nextWorkspaceId =
-        nextScope === 'my_notes'
-          ? payload?.nextScope
-            ? currentWorkspaceId || workspaceId || null
-            : workspaceId || currentWorkspaceId || null
-          : null;
+        payload?.workspaceId !== undefined ? payload.workspaceId : selectedWorkspaceId;
+      const nextScope = payload?.nextScope || resolveGlobalChatScope(nextWorkspaceId);
 
       setError('');
       setIsSending(true);
       setInput('');
-      setScope(nextScope);
-      setWorkspaceId(nextWorkspaceId);
+      setSelectedWorkspaceId(nextScope === 'my_notes' ? nextWorkspaceId : null);
 
       const timestamp = Date.now();
       const userMessage: ChatMessage = {
@@ -293,20 +307,13 @@ export default function GlobalChatSessionPage() {
       const historyWithUser = [...messages, userMessage];
       setMessages((prev) => [...prev, userMessage]);
 
-      const optimisticTitle =
-        messages.length === 0
-          ? buildGlobalChatSessionTitle(titleSeed)
-          : title;
+      const optimisticTitle = messages.length === 0 ? buildGlobalChatSessionTitle(titleSeed) : title;
       if (messages.length === 0) {
         setTitle(optimisticTitle);
       }
 
       try {
-        const actualSessionId = await createSessionIfNeeded(
-          titleSeed,
-          nextScope,
-          nextWorkspaceId
-        );
+        const actualSessionId = await createSessionIfNeeded(titleSeed, nextScope === 'my_notes' ? nextWorkspaceId : null);
         await persistMessage(actualSessionId, {
           role: 'user',
           content: question,
@@ -325,7 +332,7 @@ export default function GlobalChatSessionPage() {
           question,
           buildGlobalChatRetrievalFilters({
             scope: nextScope,
-            workspaceId: nextWorkspaceId,
+            workspaceId: nextScope === 'my_notes' ? nextWorkspaceId : null,
             filters,
           }),
           promptOptions,
@@ -376,7 +383,6 @@ export default function GlobalChatSessionPage() {
     },
     [
       createSessionIfNeeded,
-      currentWorkspaceId,
       filters,
       input,
       isSending,
@@ -384,9 +390,8 @@ export default function GlobalChatSessionPage() {
       messages,
       persistMessage,
       promptOptions,
-      scope,
+      selectedWorkspaceId,
       title,
-      workspaceId,
     ]
   );
 
@@ -399,9 +404,15 @@ export default function GlobalChatSessionPage() {
       templatePrompt: pendingDraft.templatePrompt,
       templateId: pendingDraft.templateId,
       nextScope: pendingDraft.scope,
+      workspaceId: pendingDraft.workspaceId || null,
     });
     setPendingDraft(null);
   }, [handleSubmit, isLoadingSession, pendingDraft]);
+
+  const currentScopeLabel = useMemo(
+    () => getGlobalChatScopeLabel(resolveGlobalChatScope(selectedWorkspaceId), currentWorkspaceName),
+    [currentWorkspaceName, selectedWorkspaceId]
+  );
 
   return (
     <div className="min-h-full bg-[#F6F2EB]">
@@ -418,12 +429,7 @@ export default function GlobalChatSessionPage() {
             <div>
               <h1 className="font-song text-[28px] text-[#3A2E25]">{title}</h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] text-[#8C7A6B]">
-                <span className="rounded-full bg-white px-2.5 py-1">{scopeLabel(scope)}</span>
-                {currentWorkspaceName ? (
-                  <span className="rounded-full bg-[#F1EBE3] px-2.5 py-1">
-                    {currentWorkspaceName}
-                  </span>
-                ) : null}
+                <span className="rounded-full bg-white px-2.5 py-1">{currentScopeLabel}</span>
               </div>
             </div>
           </div>
@@ -465,7 +471,7 @@ export default function GlobalChatSessionPage() {
                 </div>
                 <h2 className="mt-5 font-song text-[28px] text-[#3A2E25]">新对话已准备好</h2>
                 <p className="mt-3 text-[15px] leading-7 text-[#857364]">
-                  用下方输入框继续追问会议细节，也可以输入 <code>/</code> 调用模板。
+                  用下方输入框继续追问会议细节，也可以输入 <code>/</code> 调用 recipe 或模板。
                 </p>
               </div>
             ) : null}
@@ -524,21 +530,17 @@ export default function GlobalChatSessionPage() {
                 input={input}
                 onInputChange={setInput}
                 onSubmit={handleSubmit}
-                scope={scope}
-                onScopeChange={(nextScope) => {
-                  setScope(nextScope);
-                  setWorkspaceId(
-                    nextScope === 'my_notes' ? currentWorkspaceId || workspaceId || null : null
-                  );
-                }}
+                selectedWorkspaceId={selectedWorkspaceId}
+                onSelectedWorkspaceChange={setSelectedWorkspaceId}
+                preferredWorkspaceId={currentWorkspaceId || workspaces[0]?.id || null}
+                workspaces={workspaces}
                 filters={filters}
                 onFiltersChange={setFilters}
                 templates={templates}
                 folders={folders}
-                currentWorkspaceName={currentWorkspaceName}
                 disabled={isLoadingSession}
                 loading={isSending}
-                placeholder="继续追问，或输入 / 调用模板"
+                placeholder="继续追问，或输入 / 命令"
               />
             </div>
           </div>

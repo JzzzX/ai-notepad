@@ -7,10 +7,22 @@ function normalizeScope(value: unknown): GlobalChatScope {
   return value === 'all_meetings' ? 'all_meetings' : 'my_notes';
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const limit = Number(searchParams.get('limit') || '20');
+  const query = searchParams.get('query')?.trim() || '';
+  const take = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 100) : 20;
+
   const sessions = await prisma.globalChatSession.findMany({
+    where: query
+      ? {
+          title: {
+            contains: query,
+          },
+        }
+      : undefined,
     orderBy: { updatedAt: 'desc' },
-    take: 20,
+    take,
     include: {
       workspace: {
         select: {

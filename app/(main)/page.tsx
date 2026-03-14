@@ -7,23 +7,14 @@ import WorkspaceModal from '@/components/WorkspaceModal';
 import { useMeetingStore } from '@/lib/store';
 
 function DashboardHeader() {
-  const [time, setTime] = useState<Date | null>(null);
+  const [time, setTime] = useState(() => new Date());
 
   useEffect(() => {
-    setTime(new Date());
     const timer = setInterval(() => {
       setTime(new Date());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  if (!time) {
-    return (
-      <div className="flex items-center justify-center py-4 opacity-0">
-        <div className="h-[72px] w-[300px]" />
-      </div>
-    );
-  }
 
   const hours = time.getHours().toString().padStart(2, '0');
   const minutes = time.getMinutes().toString().padStart(2, '0');
