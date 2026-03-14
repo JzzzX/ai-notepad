@@ -6,24 +6,71 @@ import { FileAudio, MessageSquare, Mic, Plus } from 'lucide-react';
 import WorkspaceModal from '@/components/WorkspaceModal';
 import { useMeetingStore } from '@/lib/store';
 
-function buildGreeting() {
-  const now = new Date();
-  const hour = now.getHours();
+function DashboardHeader() {
+  const [time, setTime] = useState<Date | null>(null);
 
-  if (hour < 6) return '夜深了';
-  if (hour < 11) return '早上好';
-  if (hour < 14) return '中午好';
-  if (hour < 18) return '下午好';
-  return '晚上好';
-}
+  useEffect(() => {
+    setTime(new Date());
+    const timer = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-function buildDateLabel() {
-  return new Date().toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long',
-  });
+  if (!time) {
+    return (
+      <div className="flex items-center justify-center py-4 opacity-0">
+        <div className="h-[72px] w-[300px]" />
+      </div>
+    );
+  }
+
+  const hours = time.getHours().toString().padStart(2, '0');
+  const minutes = time.getMinutes().toString().padStart(2, '0');
+  const day = time.getDate();
+  const month = time.toLocaleDateString('en-US', { month: 'short' });
+  const weekday = time.toLocaleDateString('en-US', { weekday: 'short' });
+
+  const hourNum = time.getHours();
+  let greeting = '晚上好';
+  if (hourNum < 6) greeting = '夜深了';
+  else if (hourNum < 11) greeting = '早上好';
+  else if (hourNum < 14) greeting = '中午好';
+  else if (hourNum < 18) greeting = '下午好';
+
+  const showColon = time.getSeconds() % 2 === 0;
+
+  return (
+    <div className="flex justify-center transition-opacity duration-500">
+      <div className="inline-flex items-center gap-6 rounded-2xl border border-[#E3D9CE]/60 bg-white/60 px-6 py-4 shadow-sm backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <span className="font-song text-[42px] leading-none tracking-tight text-[#3A2E25]">
+            {day}
+          </span>
+          <div className="flex flex-col text-[12px] font-medium leading-tight text-[#8C7A6B]">
+            <span className="uppercase tracking-wider">{month}</span>
+            <span>{weekday}</span>
+          </div>
+        </div>
+
+        <div className="h-8 w-px bg-[#E3D9CE]" />
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-baseline gap-2">
+            <span className="font-song text-[32px] leading-none text-[#5C4D42]">
+              {hours}
+              <span className={`inline-block w-3 text-center transition-opacity duration-300 ${showColon ? 'opacity-100' : 'opacity-30'}`}>:</span>
+              {minutes}
+            </span>
+          </div>
+          <div className="flex flex-col items-start gap-1">
+            <span className="text-[14px] font-semibold text-[#4A3C31]">{greeting}</span>
+            <span className="text-[11px] text-[#8C7A6B]">记录此刻灵感</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function HomePage() {
@@ -114,13 +161,7 @@ export default function HomePage() {
     <div className="min-h-full bg-[#F6F2EB]">
       <div className="mx-auto flex max-w-[980px] flex-col gap-8 px-6 pb-12 pt-12 sm:px-8 lg:px-10">
         <section className="rounded-[34px] border border-[#DED4C9] bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.94),_rgba(249,244,237,0.98)_58%,_rgba(239,231,221,1))] px-6 py-8 text-center shadow-[0_24px_72px_rgba(58,46,37,0.08)] sm:px-10 sm:py-10">
-          <p className="text-sm text-[#8B796A]">{buildDateLabel()}</p>
-          <h1 className="mt-3 font-song text-[38px] leading-tight text-[#3A2E25] sm:text-[52px]">
-            {buildGreeting()}，今天先从哪里开始？
-          </h1>
-          <p className="mx-auto mt-4 max-w-[620px] text-[15px] leading-7 text-[#7C6B5C]">
-            首页现在只负责迎接你进入 Piedras。会议历史和笔记管理已经移到独立工作区里。
-          </p>
+          <DashboardHeader />
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
